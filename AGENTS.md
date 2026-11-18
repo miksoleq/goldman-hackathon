@@ -14,6 +14,7 @@
 
 - Before editing, read the relevant entry point, its callers, and the existing tests. Use the brief and the code to resolve questions first. Ask the team when an open decision materially affects expected behavior, a shared interface, or the demo.
 - Check the working tree before editing and preserve your teammate's changes. For work that spans both areas, agree on the shared contract and how to verify it.
+- When a business rule or shared contract changes, update [Business Rules](docs/business-rules.md) in the same commit as the implementation and its focused test.
 - Verify behavior changes with focused checks before handing them off. If the demo flow changed, run its smoke check. Report what changed, which checks ran and their results, any checks you could not run, and any setup changes your teammate needs.
 - The team may use AI tools throughout the hackathon. Keep secrets outside the repository.
 
