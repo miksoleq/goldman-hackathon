@@ -3,7 +3,7 @@
 ## Project Overview
 
 - When the brief is released, record the judging criteria, the demo scenario, and the smallest end-to-end flow that delivers a result the judges can see. Build that flow first and prioritize additions against the judging criteria.
-- Start with the JVM if it fits the brief and both teammates can work quickly with it. Use Docker when it simplifies starting local services. If the project needs a database, start with either PostgreSQL or MongoDB and choose based on the data model and the queries the demo needs.
+- Consider Java first when it fits the brief and both teammates can work quickly with it. Choose the stack that fits the time available and supports a repeatable demo. See [Technology Options](docs/technology-options.md) for examples you can adapt or extend.
 
 ## Build, Run & Test Commands
 
