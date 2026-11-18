@@ -1,12 +1,16 @@
 # Git Workflow
 
-## Parallel work
+## Everyday pushes
 
-- Before splitting work, agree on ownership, the shared interface, and one example input and expected output. Coordinate changes to that interface before editing. If two agent sessions share a laptop, use separate worktrees and branches.
-- Start short-lived branches from `main`, for example `feat/import-sample-data` or `fix/demo-startup`. Keep each PR focused on one change and integrate the first working flow early.
+- Push small, working changes directly to `main`. Pull before starting a batch of work. If a push is rejected because `main` moved, integrate your teammate's changes and retry with a regular push.
+- Agree on ownership, the shared interface, and one example input and expected output before splitting work. Use a short-lived branch for experiments or unfinished changes that would break `main`. Separate worktrees can help when running parallel agent sessions on one laptop.
 
-## Review and merge
+## Commit messages
 
-- A PR should say what changed, how to verify it, and whether it changes a shared contract or setup. Review the diff for correctness and missing tests for behavior critical to the demo. Put blocking findings first and cite the relevant lines.
-- Once CI is configured, run the build and focused tests on PRs and on updates to `main`. Cancel obsolete runs for the same PR if supported. Check the CI result before merging and use squash merges when available.
-- Keep `main` runnable. Run the demo smoke check after each merge once there is a working demo flow. Use the last rehearsed commit for a presentation fallback if a late change breaks the flow.
+- Use one short line in English in the form `<imperative verb> <what changed>`. For example, write `Add demo seed data`.
+- Omit `Co-authored-by` trailers and any other authorship attribution for Claude or any other AI agent.
+
+## Coordinate when needed
+
+- Discuss changes to a shared interface or demo setup before editing. Use a PR when you want your teammate to review a risky change before it lands. If you open a PR, say what changed and how to verify it.
+- Run a focused local check for behavior changes and smoke-test the demo when its flow changes. If the team adds CI, start with one fast check and cancel obsolete runs when supported. Keep the last rehearsed commit available as a demo fallback.

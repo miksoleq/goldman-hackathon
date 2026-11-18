@@ -14,7 +14,7 @@
 
 - Before editing, read the relevant entry point, its callers, and the existing tests. Use the brief and the code to resolve questions first. Ask the team when an open decision materially affects expected behavior, a shared interface, or the demo.
 - Check the working tree before editing and preserve your teammate's changes. For work that spans both areas, agree on the shared contract and how to verify it.
-- Run the relevant build and tests before handing off a code change. If the demo flow changed, run its smoke check. Report what changed, which commands ran and their results, any checks you could not run, and any setup changes your teammate needs.
+- Verify behavior changes with focused checks before handing them off. If the demo flow changed, run its smoke check. Report what changed, which checks ran and their results, any checks you could not run, and any setup changes your teammate needs.
 - The team may use AI tools throughout the hackathon. Keep secrets outside the repository.
 
 ## Project Rules
@@ -33,4 +33,4 @@ Open each relevant guide before editing in that area. Apply technology-specific 
 | [Error handling and security](docs/rules/error-handling-and-security.md) | Validation, exceptions, authorization, logging, secrets, external HTTP calls |
 | [Unit tests](docs/rules/unit-tests.md) | Testing challenge logic, regressions, edge cases, or test doubles |
 | [Integration tests](docs/rules/integration-tests.md) | Testing real infrastructure, public entry points, or contracts across components |
-| [Git workflow](docs/rules/git-workflow.md) | Splitting work, branches, pull requests, reviews, CI, merging to `main` |
+| [Git workflow](docs/rules/git-workflow.md) | Frequent pushes to `main`, parallel work, optional reviews and CI |
