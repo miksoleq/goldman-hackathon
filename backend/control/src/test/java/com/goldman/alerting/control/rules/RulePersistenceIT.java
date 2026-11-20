@@ -21,6 +21,25 @@ class RulePersistenceIT {
     @Autowired ObjectMapper json;
 
     @Test
+    void routesOnlyToNamedUser() throws Exception {
+        UUID user = UUID.randomUUID();
+        db.insertInto(USERS, USERS.ID, USERS.USERNAME, USERS.DISPLAY_NAME)
+                .values(user, user.toString(), "Recipient").execute();
+        String source = """
+                name: personal-%s
+                match: {path: payload.code, op: eq, value: TIMEOUT}
+                title: Timeout
+                route: {users: ['%s']}
+                """.formatted(user, user);
+        var created = creation.create(parser.parse(source), source, "operator");
+        assertThat(db.fetchCount(RULE_USERS, RULE_USERS.RULE_ID.eq(created.id()).and(RULE_USERS.USER_ID.eq(user)))).isEqualTo(1);
+        var pending = db.selectFrom(RULE_CREATED_OUTBOX).where(RULE_CREATED_OUTBOX.RULE_ID.eq(created.id())).fetchSingle();
+        var route = json.readTree(pending.getPayload().data());
+        assertThat(route.get("teamIds").size()).isZero();
+        assertThat(route.at("/userIds/0").asText()).isEqualTo(user.toString());
+    }
+
+    @Test
     void persistsRuleAndOutboxTogetherAndRejectsDuplicateName() throws Exception {
         UUID teamId = UUID.randomUUID();
         String teamName = "team-" + teamId;
