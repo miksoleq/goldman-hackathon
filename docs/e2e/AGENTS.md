@@ -15,4 +15,6 @@ Read the [E2E guidelines](README.md) before working in this repository. Read the
 
 ## Build, run, and test
 
+Keep unit and integration coverage for application changes in the owning backend or frontend repository. When changing reusable test tooling here, add or update unit tests for its logic and integration tests for affected boundaries such as API fixture setup. Run the relevant suites before handoff and report the commands, results, and any blockers.
+
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.

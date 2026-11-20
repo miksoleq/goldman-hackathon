@@ -111,3 +111,38 @@ Wartość `payload` zachowuje typ i strukturę dostarczonego JSON-a. Adapter HTT
 ## Zakres szkieletu
 
 To jest tylko warstwa ingestu. Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisów Redis, DLQ, idempotencji, autoryzacji ani obsługi treści innych niż JSON.
+
+### Tworzenie reguły w control
+
+`POST /api/rules` na porcie 8082 przyjmuje dokument edytora jako UTF-8
+(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams` i nazwa przypiętego
+runbooka muszą już istnieć w bazie. Na pustej lokalnej bazie demo przygotuj
+zespół poleceniem:
+
+```sh
+docker compose exec -T postgres psql -U alerting -d alerting -c "INSERT INTO teams(name) VALUES ('payments') ON CONFLICT DO NOTHING"
+curl -i http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- <<'YAML'
+name: Timeout płatności
+match:
+  all:
+    - {path: payload.service, op: eq, value: payments}
+    - {path: payload.error.code, op: eq, value: TIMEOUT}
+title: "Timeout w {{payload.service}}"
+route: {teams: [payments]}
+runbook: auto
+YAML
+```
+
+Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
+dokument lub nieznana nazwa zespołu/runbooka daje `400`, powtórzona nazwa
+reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
+a znormalizowana definicja v1 w `rules.definition`.
+
+Aby wysyłać zmiany, uruchom
+`RULES_KAFKA_ENABLED=true docker compose --profile kafka up --build -d postgres kafka control`.
+Po zatwierdzeniu transakcji control publikuje zdarzenie `rule.created` na
+`rules.created.v1` (zmienna `RULES_KAFKA_TOPIC`), z kluczem Kafka równym ID
+reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, runbookId
+oraz definition. Przy wyłączonym publisherze lub niedostępnym brokerze wpis
+pozostaje w `rule_created_outbox`. Publikacja jest co najmniej jednokrotna;
+konsument powinien rozpoznawać powtórzenia po `(ruleId, version)`.

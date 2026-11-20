@@ -4,6 +4,8 @@ Read the relevant [backend rules](README.md) before working in this repository. 
 
 ## Shared project practices
 
+- Use jOOQ or Hibernate for application access to PostgreSQL. Follow the [persistence guidelines](rules/persistence.md) when writing or modifying queries.
+
 - Before editing, inspect the relevant code, callers, and existing tests. Check the working tree and preserve teammates' changes. Resolve questions from the brief and code; ask the team when expected behavior or a shared contract remains unclear.
 - Agree on the demo journey, shared interfaces, and an example input and expected output before splitting work. Keep the implementation small and record actual setup and verified build, run, and test commands in this file.
 - Keep secrets and sensitive data out of the repository, logs, fixtures, and client code. Use synthetic data for demos and tests.
@@ -15,6 +17,8 @@ Read the relevant [backend rules](README.md) before working in this repository. 
 
 ## Build, run, and test
 
+For every feature or bug fix, add or update automated [unit tests](rules/unit-tests.md) for changed logic and [integration tests](rules/integration-tests.md) for affected boundaries. For example, test rule validation in isolation and exercise rule creation through HTTP against PostgreSQL and Kafka. Keep the tests alongside the change, run both relevant suites before handoff, and report the commands, results, and any blockers.
+
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.
 
 ### Local database and control
@@ -25,3 +29,11 @@ After the first successful run, record prerequisites, required environment varia
 - **Check migrations:** `Invoke-RestMethod http://localhost:8082/internal/migrations`.
 - **Inspect history:** `docker compose exec -T postgres psql -U alerting -d alerting -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"`.
 - **Verified in this workspace:** `docker compose build control`, `docker compose up -d --force-recreate control`, the migration endpoint above, and the history query. Existing schema version `1` validated successfully and was not reapplied.
+
+### Control persistence tests
+
+Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the rule transaction integration test, point `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` at a disposable PostgreSQL database and run `mvn -pl control -Dtest=RulePersistenceIT test`. Flyway creates the schema. The test writes fixtures and inspects the pending outbox, so use a database dedicated to the test with no other publisher running.
+
+### Regenerate the control jOOQ model
+
+Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.
