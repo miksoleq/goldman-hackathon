@@ -1,6 +1,6 @@
 # Engine ingest skeleton
 
-Minimalny backend przyjmuje dowolny JSON z trzech wejść i zapisuje go jako kopertę zdarzenia w Redis Streams (`events:ingest`). Nie ma jeszcze walidacji biznesowej, workera ani reguł przetwarzania.
+Minimalny backend przyjmuje dowolny JSON z trzech wejść i zapisuje go jako kopertę zdarzenia w Redis Streams (`events:ingest`). Engine dopasowuje przyjęte zdarzenia do reguł z Control.
 
 ## Uruchomienie
 
@@ -102,7 +102,8 @@ Każdy wpis zawiera pole `event` z JSON-em w formacie:
   "adapter": "http",
   "receivedAt": 1795212345678,
   "contentType": "json",
-  "payload": { "type": "payment_failed" }
+  "payload": { "type": "payment_failed" },
+  "matchedRuleIds": []
 }
 ```
 
@@ -110,7 +111,9 @@ Wartość `payload` zachowuje typ i strukturę dostarczonego JSON-a. Adapter HTT
 
 ## Zakres szkieletu
 
-To jest tylko warstwa ingestu. Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisów Redis, DLQ, idempotencji, autoryzacji ani obsługi treści innych niż JSON.
+Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisów Redis, DLQ, idempotencji, autoryzacji ani obsługi treści innych niż JSON.
+
+Warunek `jsonSchema` porównuje strukturę danych pod wskazaną ścieżką. Identyfikatory dopasowanych reguł trafiają do `matchedRuleIds`. [Przykładowa reguła i obsługiwane elementy schematu](docs/backend/business-decisions/2026-11-21-json-schema-matching.md).
 
 ### Tworzenie reguły w control
 

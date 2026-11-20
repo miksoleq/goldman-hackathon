@@ -6,6 +6,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RuleDocumentTest {
     @Test
+    void rejectsInvalidNestedShapeBeforePersistence() throws Exception {
+        var document = new RuleDocument();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> document.parse("""
+                name: Bad shape
+                route: {teams: [payments]}
+                match: {path: payload, op: jsonSchema, value: {type: array, items: {type: typo}}}
+                title: Bad
+                """)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void separatesRoutingFromTheDefinitionStoredAsJson() throws Exception {
         var draft = new RuleDocument().parse("""
                 name: Timeout

@@ -96,7 +96,7 @@ class RuleControlKafkaIT {
                 name: %s
                 enabled: true
                 priority: 10
-                match: {path: payload.kind, op: eq, value: payment_failed}
+                match: {path: payload, op: jsonSchema, value: {type: object, required: [kind], properties: {kind: {type: string}}}}
                 title: Payment failed
                 route: {teams: [%s]}
                 runbook: auto
@@ -132,7 +132,7 @@ class RuleControlKafkaIT {
             assertThat(event.path("enabled").asBoolean()).isTrue();
             assertThat(event.path("priority").asInt()).isEqualTo(10);
             assertThat(event.path("definition").path("v").asInt()).isEqualTo(1);
-            assertThat(event.path("definition").at("/match/value").asText()).isEqualTo("payment_failed");
+            assertThat(event.path("definition").at("/match/value/properties/kind/type").asText()).isEqualTo("string");
             assertThat(event.path("teamIds").get(0).asText()).isEqualTo(teamId.toString());
         }
     }
