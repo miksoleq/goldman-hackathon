@@ -7,6 +7,8 @@
 
 ## Commit messages
 
+- Group related changes into cohesive, logical commits that are easy to understand and review. Avoid a separate commit for each small edit; split unrelated work when it improves clarity. Keep each commit focused and working when practical.
+
 - Use one short line in English in the form `<imperative verb> <what changed>`. For example, write `Add demo seed data`.
 - Omit `Co-authored-by` trailers and any other authorship attribution for Claude or any other AI agent.
 
