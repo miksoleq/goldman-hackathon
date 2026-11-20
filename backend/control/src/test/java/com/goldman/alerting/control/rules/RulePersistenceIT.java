@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 import static com.goldman.alerting.control.db.Tables.*;
 
 import java.util.UUID;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = "rules.kafka.enabled=false")
+@Transactional
 class RulePersistenceIT {
     @Autowired RuleDocument parser;
     @Autowired RuleCreation creation;

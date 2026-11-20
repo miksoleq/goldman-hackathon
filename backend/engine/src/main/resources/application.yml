@@ -31,6 +31,7 @@ management:
 ingest:
   max-payload-bytes: ${INGEST_MAX_PAYLOAD_BYTES:1048576}
   redis:
+    enabled: ${INGEST_REDIS_ENABLED:true}
     external-stream: ${INGEST_REDIS_EXTERNAL_STREAM:ingest:external}
     internal-stream: ${INGEST_REDIS_INTERNAL_STREAM:events:ingest}
     consumer-group: ${INGEST_REDIS_CONSUMER_GROUP:engine}
@@ -40,3 +41,9 @@ ingest:
   kafka:
     enabled: ${INGEST_KAFKA_ENABLED:false}
     topic: ${INGEST_KAFKA_TOPIC:ingest.external}
+
+rules:
+  kafka:
+    enabled: ${RULES_KAFKA_ENABLED:false}
+    topic: ${RULES_KAFKA_TOPIC:rules.created.v1}
+    consumer-group: ${RULES_KAFKA_CONSUMER_GROUP:engine-rules}
