@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,11 +31,8 @@ public class HttpIngestController {
         this.maxBodyBytes = maxBodyBytes;
     }
 
-    @PostMapping(path = "/{source}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IngestAccepted> accept(
-            @PathVariable String source,
-            HttpServletRequest request
-    ) {
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<IngestAccepted> accept(HttpServletRequest request) {
         byte[] requestBody;
         try {
             int readLimit = maxBodyBytes == Integer.MAX_VALUE ? maxBodyBytes : maxBodyBytes + 1;
@@ -52,7 +48,7 @@ public class HttpIngestController {
         }
 
         MessageEnvelope envelope = ingestionService.accept(
-                source,
+                null,
                 "http",
                 new String(requestBody, StandardCharsets.UTF_8)
         );

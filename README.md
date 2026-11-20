@@ -22,13 +22,15 @@ Wartość `INGEST_KAFKA_ENABLED` włącza adapter Kafka. Domyślny topic to `ing
 
 ### HTTP
 
-`POST /ingest/{source}` przyjmuje `Content-Type: application/json`. Payload może być dowolną wartością JSON: obiektem, tablicą, tekstem, liczbą, booleanem albo `null`. Limit wiadomości wynosi domyślnie 1 MiB (`INGEST_MAX_PAYLOAD_BYTES`) dla wszystkich adapterów. Źródło HTTP nie wymaga rejestracji.
+`POST /ingest` przyjmuje `Content-Type: application/json`. Payload może być dowolną wartością JSON: obiektem, tablicą, tekstem, liczbą, booleanem albo `null`. Limit wiadomości wynosi domyślnie 1 MiB (`INGEST_MAX_PAYLOAD_BYTES`) dla wszystkich adapterów. W kopercie HTTP pole `source` ma wartość `null`. Jeśli producent podaje źródło biznesowe w treści, reguła może je odczytać np. z `payload.service`.
 
 ```sh
-curl -i -X POST http://localhost:8081/ingest/payments \
+curl -i -X POST http://localhost:8081/ingest \
   -H 'Content-Type: application/json' \
   --data-binary '{"type":"payment_failed","details":{"code":"TIMEOUT"}}'
 ```
+
+Producenci korzystający wcześniej z `/ingest/{source}` przechodzą na `/ingest`.
 
 Sukces zwraca `202 Accepted` i `{"eventId":"..."}`. Niepoprawny JSON zwraca `400`, a body powyżej limitu `413`.
 
@@ -60,7 +62,7 @@ Każdy wpis zawiera pole `event` z JSON-em w formacie:
 ```json
 {
   "eventId": "uuid",
-  "source": "payments",
+  "source": null,
   "adapter": "http",
   "receivedAt": 1795212345678,
   "contentType": "json",
