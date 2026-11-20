@@ -34,5 +34,6 @@ Open each relevant guide before editing in that area. Apply technology-specific 
 | [Error handling and security](docs/rules/error-handling-and-security.md) | Validation, exceptions, authorization, logging, secrets, external HTTP calls |
 | [Unit tests](docs/rules/unit-tests.md) | Testing challenge logic, regressions, edge cases, or test doubles |
 | [Integration tests](docs/rules/integration-tests.md) | Testing real infrastructure, public entry points, or contracts across components |
+| [Frontend](docs/frontend/README.md) | Building or changing user interfaces, accessibility, API integration, and testable UI |
 | [E2E testing](docs/e2e/README.md) | Browser-based user journeys, stable selectors, E2E reports, or UI smoke tests |
 | [Git workflow](docs/rules/git-workflow.md) | Frequent pushes to `main`, parallel work, optional reviews and CI |
