@@ -4,19 +4,55 @@ Minimalny backend przyjmuje dowolny JSON z trzech wejść i zapisuje go jako kop
 
 ## Uruchomienie
 
-Wymagany Docker z Docker Compose. Usługa HTTP wystawia port `8081`.
+Wymagany Docker z Docker Compose. Skopiuj lokalną konfigurację środowiska (w PowerShell):
 
-```sh
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Potem uruchom cały zestaw. Ingest HTTP wystawia port `8081`, `control` port `8082`, a PostgreSQL jest dostępny na `localhost:55432` (port hosta można zmienić przez `POSTGRES_PORT`).
+
+```powershell
 docker compose up --build
 ```
 
-Opcjonalnie uruchom Kafka KRaft i listener Kafka:
+Opcjonalnie uruchom też Kafka KRaft i listener Kafka:
 
-```sh
-INGEST_KAFKA_ENABLED=true docker compose --profile kafka up --build
+```powershell
+$env:INGEST_KAFKA_ENABLED = "true"
+docker compose --profile kafka up --build
 ```
 
-Wartość `INGEST_KAFKA_ENABLED` włącza adapter Kafka. Domyślny topic to `ingest.external`; broker dostępny lokalnie pod `localhost:9092`.
+Domyślny topic to `ingest.external`; broker dostępny lokalnie pod `localhost:9092`.
+
+## Control i wersje schematu
+
+`control` jest właścicielem migracji bazy. Przy starcie Spring Boot/Flyway sprawdza `flyway_schema_history` i stosuje tylko te migracje, których wersji jeszcze tam nie ma. Uruchom samą bazę i control (bez engine):
+
+```powershell
+docker compose up -d postgres
+docker compose up --build -d control
+```
+
+Wersję bieżącą, wykonane migracje i oczekujące zmiany sprawdzisz przez API:
+
+```powershell
+Invoke-RestMethod http://localhost:8082/internal/migrations | ConvertTo-Json -Depth 5
+docker compose exec postgres psql -U alerting -d alerting -c "SELECT version, description, success FROM flyway_schema_history;"
+docker compose exec postgres psql -U alerting -d alerting -c "\dt"
+```
+
+Połączenie lokalne: host `localhost`, port `55432`, baza `alerting`, użytkownik `alerting`, hasło z pliku `.env`. Inne kontenery Compose łączą się z hostem `postgres` i portem `5432`.
+
+### Co robi plik SQL
+
+`backend/control/src/main/resources/db/migration/V1__init.sql` opisuje pierwszy schemat aplikacji; sam plik nie uruchamia serwera ani nie tworzy bazy. Usługa `postgres` tworzy bazę i użytkownika z konfiguracji środowiska. `control` czeka na gotowość Postgresa, a Flyway wykonuje migrację i zapisuje jej wersję w `flyway_schema_history`. Dzięki temu kolejne uruchomienie nie wykonuje `V1` drugi raz.
+
+W `V1__init.sql` są cztery enumy statusów, tabele konfiguracji (zespoły, użytkownicy, kanały, reguły i runbooki), tabele operacyjne (alerty, powiadomienia, wykonania akcji i audyt), klucze obce oraz indeksy. `jsonb` przechowuje elastyczne definicje reguł, konfiguracje kanałów i surowe zdarzenia. Skrypt dodaje też początkowy wiersz wersji konfiguracji i wbudowane typy akcji.
+
+Postgres przechowuje dane w nazwanym wolumenie `postgres_data`, więc zwykłe zatrzymanie lub usunięcie kontenera ich nie kasuje. `docker compose down -v` usuwa ten wolumen i wszystkie dane; używaj tego tylko wtedy, gdy świadomie chcesz wyzerować bazę. Nowe zmiany schematu zapisuj w kolejnych plikach w katalogu migracji, np. `V2__add_column.sql`; `control` zastosuje je przy następnym starcie.
+
+Na tym etapie `control` zajmuje się połączeniem z bazą, migracjami i raportowaniem wersji przez `GET /internal/migrations`. Nie ma jeszcze CRUD konfiguracji ani alertów. `engine` nadal nie łączy się bezpośrednio z PostgreSQL.
 
 ## Wejścia
 
