@@ -6,7 +6,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /** The matching-relevant projection of a validated {@code rules.definition} row. */
-public record RuleDefinition(String id, Condition condition) {
+public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
+    public RuleDefinition(String id, Condition condition) { this(id, condition, null); }
 
     private static final Set<String> V1_KEYS = Set.of(
             "v", "match", "severity", "title", "body", "dedup", "stopProcessing", "runbookMode"

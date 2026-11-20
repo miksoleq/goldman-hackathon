@@ -118,7 +118,7 @@ Warunek `jsonSchema` porównuje strukturę danych pod wskazaną ścieżką. Iden
 ### Tworzenie reguły w control
 
 `POST /api/rules` na porcie 8082 przyjmuje dokument edytora jako UTF-8
-(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams` i nazwa przypiętego
+(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams`, loginy w `route.users` i nazwa przypiętego
 runbooka muszą już istnieć w bazie. Na pustej lokalnej bazie demo przygotuj
 zespół poleceniem:
 
@@ -137,7 +137,7 @@ YAML
 ```
 
 Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
-dokument lub nieznana nazwa zespołu/runbooka daje `400`, powtórzona nazwa
+dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, powtórzona nazwa
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
 
@@ -145,7 +145,11 @@ Aby wysyłać zmiany, uruchom
 `RULES_KAFKA_ENABLED=true docker compose --profile kafka up --build -d postgres kafka control`.
 Po zatwierdzeniu transakcji control publikuje zdarzenie `rule.created` na
 `rules.created.v1` (zmienna `RULES_KAFKA_TOPIC`), z kluczem Kafka równym ID
-reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, runbookId
+reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, userIds, runbookId
 oraz definition. Przy wyłączonym publisherze lub niedostępnym brokerze wpis
 pozostaje w `rule_created_outbox`. Publikacja jest co najmniej jednokrotna;
 konsument powinien rozpoznawać powtórzenia po `(ruleId, version)`.
+
+### Alert po dopasowaniu
+
+Aby kierować alert tylko do wybranych osób, ustaw np. `route: {users: [alice]}`. Można też podać zespoły i osoby w jednej regule. Po dopasowaniu Engine wysyła komunikat `alert.created` przez Redis Pub/Sub na `alerts.live`, a Control odbiera go jako zdarzenie aplikacyjne. W środowisku demo komunikat można podejrzeć przed wysłaniem eventu poleceniem `docker compose exec redis redis-cli SUBSCRIBE alerts.live`. Przykład i zasady dostarczania opisuje [kontrakt alertów](docs/backend/business-decisions/2026-11-21-live-alerts.md).
