@@ -20,20 +20,20 @@
 
 ## Project Rules
 
-Open each relevant guide before editing in that area. Apply technology-specific guidance when the project uses that technology.
+Open each relevant guide before editing in that area. Shared rules in `docs/rules/` apply across the project; `docs/backend/rules/`, `docs/frontend/rules/`, and `docs/e2e/rules/` contain area-specific guidance. Apply technology-specific guidance when the project uses that technology.
 
 | Rule file | Read it when you work on |
 | --- | --- |
 | [Architecture](docs/rules/architecture.md) | Project layout, package or module boundaries, dependency direction, external adapters |
 | [Clean code](docs/rules/clean-code.md) | Writing or refactoring application or test code, naming, error-prone control flow |
-| [REST API](docs/rules/rest-api.md) | Endpoints, request and response models, HTTP status codes, shared API contracts |
-| [Persistence](docs/rules/persistence.md) | Repositories, PostgreSQL or MongoDB, queries, transactions, migrations |
-| [Search](docs/rules/search.md) | Search queries, pagination, indexing, or search projections |
-| [Messaging](docs/rules/messaging.md) | Events, queues, background jobs, retries, duplicate delivery |
+| [REST API](docs/backend/rules/rest-api.md) | Endpoints, request and response models, HTTP status codes, shared API contracts |
+| [Persistence](docs/backend/rules/persistence.md) | Repositories, PostgreSQL or MongoDB, queries, transactions, migrations |
+| [Search](docs/backend/rules/search.md) | Search queries, pagination, indexing, or search projections |
+| [Messaging](docs/backend/rules/messaging.md) | Events, queues, background jobs, retries, duplicate delivery |
 | [Configuration and demo](docs/rules/configuration-and-demo.md) | Environment variables, Docker, sample data, smoke checks, demo fallback |
-| [Error handling and security](docs/rules/error-handling-and-security.md) | Validation, exceptions, authorization, logging, secrets, external HTTP calls |
+| [Error handling and security](docs/backend/rules/error-handling-and-security.md) | Validation, exceptions, authorization, logging, secrets, external HTTP calls |
 | [Unit tests](docs/rules/unit-tests.md) | Testing challenge logic, regressions, edge cases, or test doubles |
 | [Integration tests](docs/rules/integration-tests.md) | Testing real infrastructure, public entry points, or contracts across components |
-| [Frontend](docs/frontend/README.md) | Building or changing user interfaces, accessibility, API integration, and testable UI |
-| [E2E testing](docs/e2e/README.md) | Browser-based user journeys, stable selectors, E2E reports, or UI smoke tests |
+| [Frontend](docs/frontend/rules/frontend.md) | Building or changing user interfaces, accessibility, API integration, and testable UI |
+| [E2E testing](docs/e2e/rules/e2e.md) | Browser-based user journeys, stable selectors, E2E reports, or UI smoke tests |
 | [Git workflow](docs/rules/git-workflow.md) | Frequent pushes to `main`, parallel work, optional reviews and CI |
