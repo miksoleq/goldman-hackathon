@@ -40,7 +40,7 @@ Build the smallest interface that clearly demonstrates the agreed user journey. 
 
 ## Before handing off a frontend change
 
-1. Run the project's documented install, build, and relevant checks. Record verified commands and prerequisites in [AGENTS.md](AGENTS.md#build-run--test-commands); do not claim checks passed if they were not run.
+1. Run the project's documented install, build, and relevant checks. Record verified commands and prerequisites in [AGENTS.md](AGENTS.md#build-run-and-test); do not claim checks passed if they were not run.
 2. Start the app and follow the actual demo journey with representative data, including at least one relevant failure or empty state. Confirm the displayed result matches the expected API response.
 3. Check keyboard navigation and the screen at a desktop and a narrow viewport. Inspect the browser console and network failures; investigate errors affecting the flow.
 4. Run the focused E2E smoke test when available. If it does not exist yet, document the manual steps and expected result, then add an automated test when the flow is stable.

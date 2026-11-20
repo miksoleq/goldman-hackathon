@@ -2,7 +2,7 @@
 
 ## Local setup
 
-- Document required runtime versions, services, ports, and environment variable names alongside the verified commands in [AGENTS.md](../AGENTS.md#build-run--test-commands). Use placeholder values in tracked examples and load secrets from the local environment or the configured secret store.
+- Document required runtime versions, services, ports, and environment variable names alongside the verified commands in [AGENTS.md](../AGENTS.md#build-run-and-test). Use placeholder values in tracked examples and load secrets from the local environment or the configured secret store.
 - Keep local startup repeatable. Start the same service configuration on both laptops and make demo data safe to load repeatedly.
 
 ## Rehearsal

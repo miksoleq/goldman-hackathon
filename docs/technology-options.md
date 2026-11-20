@@ -17,4 +17,4 @@ The tools below are examples to consider once the challenge is known. Choose any
 | Observability | Structured logs, Spring Boot Actuator, Micrometer, Prometheus, or Grafana. | Start with enough logging to debug the demo. Add health checks or metrics when they help verify a requirement. |
 | Local run and delivery | A local process, Docker or Podman, Compose for multi-service setups, and GitHub Actions for CI. | Choose a workflow that runs on both laptops. Add automation when it saves time or the submission needs a reproducible build. |
 
-Start with the smallest combination that supports one end-to-end flow. Add a service or dependency when it solves a specific challenge, integration, or demo need. Once both teammates can run the chosen stack, record the verified commands in [AGENTS.md](../AGENTS.md#build-run--test-commands).
+Start with the smallest combination that supports one end-to-end flow. Add a service or dependency when it solves a specific challenge, integration, or demo need. Once both teammates can run the chosen stack, record the verified commands in the relevant repository's `AGENTS.md`.

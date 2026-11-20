@@ -7,5 +7,6 @@ Read [AGENTS.md](AGENTS.md) first, then open the relevant guide:
 - [Error handling and security](rules/error-handling-and-security.md)
 - [Unit tests](rules/unit-tests.md) and [integration tests](rules/integration-tests.md)
 - [Configuration and demo](rules/configuration-and-demo.md)
+- [Git workflow](GIT-WORKFLOW.md)
 
 Coordinate contracts and demo setup with the frontend and E2E repositories.

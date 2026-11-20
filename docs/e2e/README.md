@@ -8,7 +8,7 @@ Use end-to-end tests to prove that the most important user journey works from en
 - Exercise the real user-facing flow. Use an API or fixture for setup when that makes the test faster and more reliable, then assert the outcome a user would observe.
 - Keep the test readable as a sequence of business actions and expected outcomes. Organize the code as described below.
 - Prefer isolated, uniquely named test data. Clean up data created by a test when practical. Start tests sequentially if they share state; add parallel execution only after isolation is clear.
-- Keep environment URLs and credentials out of source control. Document the verified command and any required services in [AGENTS.md](AGENTS.md#build-run--test-commands).
+- Keep environment URLs and credentials out of source control. Document the verified command and any required services in [AGENTS.md](AGENTS.md#build-run-and-test).
 
 ## E2E code structure
 
