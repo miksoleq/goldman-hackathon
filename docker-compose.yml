@@ -55,6 +55,9 @@ services:
       REDIS_HOST: redis
       INGEST_KAFKA_ENABLED: ${INGEST_KAFKA_ENABLED:-false}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RULES_KAFKA_ENABLED: ${RULES_KAFKA_ENABLED:-false}
+      RULES_KAFKA_TOPIC: ${RULES_KAFKA_TOPIC:-rules.created.v1}
+      RULES_KAFKA_CONSUMER_GROUP: ${RULES_KAFKA_CONSUMER_GROUP:-engine-rules}
     depends_on:
       redis:
         condition: service_healthy
@@ -79,5 +82,22 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
+  backend-tests:
+    image: maven:3.9-eclipse-temurin-21
+    profiles: [test]
+    working_dir: /workspace
+    volumes:
+      - ./backend:/workspace
+      - maven_cache:/root/.m2
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-alerting}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-alerting}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["mvn", "-B", "-pl", "control,engine", "-am", "clean", "verify"]
+
 volumes:
   postgres_data:
+  maven_cache:
