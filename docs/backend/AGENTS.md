@@ -16,3 +16,12 @@ Read the relevant [backend rules](README.md) before working in this repository. 
 ## Build, run, and test
 
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.
+
+### Local database and control
+
+- **Prerequisites:** Docker Desktop with Docker Compose v2. PostgreSQL 17 runs in Compose and stores data in the named `postgres_data` volume.
+- **Environment:** copy `.env.example` to `.env`; set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_PORT` there. The example defaults to database/user `alerting` and host port `55432`. Compose passes `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` to `control`; do not commit `.env`.
+- **Start:** `docker compose up --build -d postgres control`.
+- **Check migrations:** `Invoke-RestMethod http://localhost:8082/internal/migrations`.
+- **Inspect history:** `docker compose exec -T postgres psql -U alerting -d alerting -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"`.
+- **Verified in this workspace:** `docker compose build control`, `docker compose up -d --force-recreate control`, the migration endpoint above, and the history query. Existing schema version `1` validated successfully and was not reapplied.

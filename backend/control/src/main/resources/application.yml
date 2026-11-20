@@ -1,0 +1,21 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: control
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:55432/alerting}
+    username: ${SPRING_DATASOURCE_USERNAME:alerting}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
