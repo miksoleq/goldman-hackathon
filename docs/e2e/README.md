@@ -10,11 +10,25 @@ Use end-to-end tests to prove that the most important user journey works from en
 - Prefer isolated, uniquely named test data. Clean up data created by a test when practical. Start tests sequentially if they share state; add parallel execution only after isolation is clear.
 - Keep environment URLs and credentials out of source control. Document the verified command and any required services in [AGENTS.md](../../AGENTS.md#build-run--test-commands).
 
+## Use Playwright CLI to build Page Objects
+
+- Use the [Playwright CLI](https://github.com/microsoft/playwright-cli) as a browser exploration tool while creating or updating Page Objects: open the app, inspect snapshots, try a candidate locator, and inspect the element's attributes.
+- Turn what you learn into a stable locator and an intent-based Page Object method in the E2E framework chosen for the project. Snapshot refs such as `e5` are temporary exploration handles; never commit them as selectors.
+- Example exploration commands:
+  ```sh
+  playwright-cli open <app-url>
+  playwright-cli snapshot
+  playwright-cli generate-locator e5 --raw
+  playwright-cli eval "el => el.getAttribute('data-testid')" e5
+  playwright-cli close
+  ```
+- The CLI is useful even if the project uses another test runner: translate the inspected element into that runner's locator syntax. If an XPath is required, derive a short relative XPath from stable attributes or text and verify that it uniquely identifies the element.
+- `generate-locator` generates a Playwright locator, not a guaranteed XPath. Use role, label, text, or test-ID locators where the chosen framework supports them; use XPath only when those options do not fit. See [Playwright locator guidance](https://playwright.dev/docs/locators).
+
 ## Stable UI selectors
 
 - Prefer accessible, user-facing selectors: role and name, label, placeholder, or visible text. Use a stable test ID when the UI has no suitable accessible selector.
-- Use XPath only when a semantic locator or stable test ID cannot identify the element. Keep it short and anchored to stable attributes or text; avoid absolute paths and positional indexes.
-- Inspect the rendered page before writing a selector. The [Playwright CLI](https://github.com/microsoft/playwright-cli) can snapshot a page, inspect element attributes, and generate Playwright locators. Its `generate-locator` command outputs a Playwright locator, not necessarily XPath. You can inspect the DOM with `eval` or `run-code` to derive an XPath when needed, then verify that it is unique and stable. See [Playwright locator guidance](https://playwright.dev/docs/locators).
+- Keep XPath short and anchored to stable attributes or text. Avoid absolute paths and positional indexes.
 
 ## Reliability and feedback
 
