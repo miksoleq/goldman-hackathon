@@ -6,6 +6,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RuleDocumentTest {
     @Test
+    void rejectsEmptyOrDuplicateRecipients() throws Exception {
+        var doc = new RuleDocument();
+        for (String route : java.util.List.of("{}", "{teams: [], users: []}", "{users: [alice, alice]}", "{users: alice}")) {
+            var yaml = "name: Demo\ntitle: Alert\nmatch: {path: payload, op: exists}\nroute: " + route;
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> doc.parse(yaml))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
     void rejectsInvalidNestedShapeBeforePersistence() throws Exception {
         var document = new RuleDocument();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> document.parse("""

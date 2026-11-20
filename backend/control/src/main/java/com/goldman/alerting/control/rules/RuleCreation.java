@@ -27,6 +27,9 @@ class RuleCreation {
     @Transactional
     public Created create(RuleDocument.Draft draft, String source, String actor) {
         var teams = draft.teams().stream().map(this::teamId).toList();
+        var users = draft.users().stream().map(username -> db.select(USERS.ID).from(USERS)
+                .where(USERS.USERNAME.eq(username)).forKeyShare().fetchOptional(USERS.ID)
+                .orElseThrow(() -> RuleDocument.invalid("Unknown user: " + username))).toList();
         UUID runbook = draft.runbook() == null ? null : db.select(RUNBOOKS.ID).from(RUNBOOKS)
                 .where(RUNBOOKS.NAME.eq(draft.runbook())).forKeyShare().fetchOptional(RUNBOOKS.ID)
                 .orElseThrow(() -> RuleDocument.invalid("Unknown reference: " + draft.runbook()));
@@ -46,6 +49,10 @@ class RuleCreation {
 
         for (UUID team : teams) {
             db.insertInto(RULE_TEAMS, RULE_TEAMS.RULE_ID, RULE_TEAMS.TEAM_ID).values(id, team).execute();
+        }
+        for (UUID user : users) {
+            db.insertInto(RULE_USERS, RULE_USERS.RULE_ID, RULE_USERS.USER_ID)
+                    .values(id, user).execute();
         }
         db.insertInto(RULE_VERSIONS)
                 .set(RULE_VERSIONS.RULE_ID, id)
@@ -68,6 +75,7 @@ class RuleCreation {
         var payload = json.createObjectNode().put("type", "rule.created").put("ruleId", id.toString())
                 .put("version", 1).put("configVersion", revision).put("name", draft.name())
                 .put("enabled", draft.enabled()).put("priority", draft.priority());
+        payload.set("userIds", json.valueToTree(users));
         payload.set("teamIds", json.valueToTree(teams));
         payload.set("runbookId", json.valueToTree(runbook));
         payload.set("definition", draft.definition());

@@ -7,9 +7,11 @@ package com.goldman.alerting.control.db.tables;
 import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
 import com.goldman.alerting.control.db.tables.RuleTeams.RuleTeamsPath;
+import com.goldman.alerting.control.db.tables.RuleUsers.RuleUsersPath;
 import com.goldman.alerting.control.db.tables.RuleVersions.RuleVersionsPath;
 import com.goldman.alerting.control.db.tables.Runbooks.RunbooksPath;
 import com.goldman.alerting.control.db.tables.Teams.TeamsPath;
+import com.goldman.alerting.control.db.tables.Users.UsersPath;
 import com.goldman.alerting.control.db.tables.records.RulesRecord;
 
 import java.time.OffsetDateTime;
@@ -224,6 +226,19 @@ public class Rules extends TableImpl<RulesRecord> {
         return _ruleTeams;
     }
 
+    private transient RuleUsersPath _ruleUsers;
+
+    /**
+     * Get the implicit to-many join path to the <code>public.rule_users</code>
+     * table
+     */
+    public RuleUsersPath ruleUsers() {
+        if (_ruleUsers == null)
+            _ruleUsers = new RuleUsersPath(this, null, Keys.RULE_USERS__RULE_USERS_RULE_ID_FKEY.getInverseKey());
+
+        return _ruleUsers;
+    }
+
     private transient RuleVersionsPath _ruleVersions;
 
     /**
@@ -243,6 +258,14 @@ public class Rules extends TableImpl<RulesRecord> {
      */
     public TeamsPath teams() {
         return ruleTeams().teams();
+    }
+
+    /**
+     * Get the implicit many-to-many join path to the <code>public.users</code>
+     * table
+     */
+    public UsersPath users() {
+        return ruleUsers().users();
     }
 
     @Override

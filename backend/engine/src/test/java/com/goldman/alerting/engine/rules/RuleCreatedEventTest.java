@@ -16,11 +16,11 @@ class RuleCreatedEventTest {
 
     @Test
     void parsesControlEnvelopeAndV1Definition() {
-        RuleCreatedEvent event = RuleCreatedEvent.fromJson(message("rule-17", true, "payment_failed"), objectMapper);
+        RuleCreatedEvent event = RuleCreatedEvent.fromJson(message("048f06df-7fb4-4432-8743-87af3277489f", true, "payment_failed"), objectMapper);
 
-        assertEquals("rule-17", event.ruleId());
+        assertEquals("048f06df-7fb4-4432-8743-87af3277489f", event.ruleId());
         assertTrue(event.enabled());
-        assertEquals("rule-17", event.toRuleDefinition().id());
+        assertEquals("048f06df-7fb4-4432-8743-87af3277489f", event.toRuleDefinition().id());
         assertEquals("payment_failed", event.definition().path("match").path("value").asText());
     }
 

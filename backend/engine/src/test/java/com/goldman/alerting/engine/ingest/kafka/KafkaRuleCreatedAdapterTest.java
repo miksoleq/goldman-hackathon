@@ -18,9 +18,9 @@ class KafkaRuleCreatedAdapterTest {
         RuleIndexManager manager = new RuleIndexManager(List.of());
         KafkaRuleCreatedAdapter adapter = new KafkaRuleCreatedAdapter(objectMapper, manager);
 
-        adapter.onMessage(record(message("enabled-rule", true, "enabled")));
+        adapter.onMessage(record(message("048f06df-7fb4-4432-8743-87af3277489f", true, "enabled")));
         assertEquals(1, manager.snapshot().ruleCount());
-        assertEquals(List.of("enabled-rule"), manager.match(json("{\"payload\":{\"kind\":\"enabled\"}}"))
+        assertEquals(List.of("048f06df-7fb4-4432-8743-87af3277489f"), manager.match(json("{\"payload\":{\"kind\":\"enabled\"}}"))
                 .stream().map(rule -> rule.id()).toList());
 
         adapter.onMessage(record(message("disabled-rule", false, "disabled")));
