@@ -6,9 +6,28 @@ Use end-to-end tests to prove that the most important user journey works from en
 
 - Start with one happy path that demonstrates a judging criterion. Add a small number of smoke or failure cases only when they protect an important promise.
 - Exercise the real user-facing flow. Use an API or fixture for setup when that makes the test faster and more reliable, then assert the outcome a user would observe.
-- Keep the test readable as a sequence of actions and expected outcomes. Add a page object or shared helper when it removes repeated UI details; do not introduce framework layers or shared test modules without a concrete need.
+- Keep the test readable as a sequence of business actions and expected outcomes. Organize the code as described below.
 - Prefer isolated, uniquely named test data. Clean up data created by a test when practical. Start tests sequentially if they share state; add parallel execution only after isolation is clear.
 - Keep environment URLs and credentials out of source control. Document the verified command and any required services in [AGENTS.md](../../AGENTS.md#build-run--test-commands).
+
+## E2E code structure
+
+Organize the suite by responsibility. Adapt the paths and file extensions to the chosen test framework:
+
+```text
+e2e/
+  tests/          # test cases and expected outcomes
+  scenarios/      # reusable business steps and verifications
+  pages/          # Page Objects and reusable UI fragments
+  clients/        # API helpers for setup or verification, when needed
+  fixtures/       # test data and setup, when needed
+```
+
+- **Tests** describe the journey and expected result in business terms. They call scenarios, rather than containing selectors, browser calls, SQL, or HTTP details.
+- **Scenarios / steps** combine Page Object actions into meaningful business operations (for example, submit an application) and own business assertions. Pass test data explicitly and keep per-test state isolated. Use API clients for setup or verification when appropriate.
+- **Page Objects** encapsulate one page or reusable fragment, its locators, UI interactions and framework waits. Expose intention-revealing methods and observable values, such as `submit()` or `getStatus()`. Keep business assertions in scenarios and do not expose raw browser elements to tests.
+- **API clients and fixtures** encapsulate API setup and test data when the suite needs them. Create them only when useful; never add database, messaging, or integration infrastructure without a concrete test need.
+- Keep dependencies flowing from tests to scenarios and then to Page Objects or clients. Do not add a Maven multi-module build, dependency injection, or shared framework just to enforce this layout.
 
 ## Use Playwright CLI to build Page Objects
 
