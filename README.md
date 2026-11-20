@@ -115,7 +115,7 @@ To jest tylko warstwa ingestu. Nie ma jeszcze konsumenta `events:ingest`, odzysk
 ### Tworzenie reguły w control
 
 `POST /api/rules` na porcie 8082 przyjmuje dokument edytora jako UTF-8
-(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams` i nazwa przypiętego
+(`application/yaml`, maks. 1 MiB). Routing wymaga przynajmniej jednego odbiorcy: zespołu (`route.teams`), użytkownika po loginie (`route.users`) lub obu, np. `route: {teams: [payments], users: [anna]}`. Nazwy odbiorców i nazwa przypiętego
 runbooka muszą już istnieć w bazie. Na pustej lokalnej bazie demo przygotuj
 zespół poleceniem:
 
@@ -134,7 +134,7 @@ YAML
 ```
 
 Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
-dokument lub nieznana nazwa zespołu/runbooka daje `400`, powtórzona nazwa
+dokument lub nieznana nazwa zespołu/użytkownika/runbooka daje `400`, powtórzona nazwa
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
 
@@ -142,7 +142,37 @@ Aby wysyłać zmiany, uruchom
 `RULES_KAFKA_ENABLED=true docker compose --profile kafka up --build -d postgres kafka control`.
 Po zatwierdzeniu transakcji control publikuje zdarzenie `rule.created` na
 `rules.created.v1` (zmienna `RULES_KAFKA_TOPIC`), z kluczem Kafka równym ID
-reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, runbookId
+reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, userIds, runbookId
 oraz definition. Przy wyłączonym publisherze lub niedostępnym brokerze wpis
 pozostaje w `rule_created_outbox`. Publikacja jest co najmniej jednokrotna;
 konsument powinien rozpoznawać powtórzenia po `(ruleId, version)`.
+
+### Odbiór gotowych alertów z engine
+
+`ALERTS_KAFKA_ENABLED=true docker compose --profile kafka up --build -d postgres kafka control`
+włącza konsumenta topicu `alerts.live` w grupie `control-alerts-live-v1`.
+Flaga działa niezależnie od publikacji reguł. Kontrakt v1 i przykładowy
+rekord dla producenta: [alert-created.json](docs/backend/examples/alert-created.json).
+
+Engine powinien ustawiać klucz Kafka na `alertId`, aby kolejne aktualizacje
+alertu trafiały do tej samej partycji. `alert.created` i `alert.updated`
+niosą pełny stan prezentacji, docelowe ID zespołów i użytkowników (łącznie
+przynajmniej jeden odbiorca), ID ostatniego zdarzenia i reguły, dodatni
+licznik wystąpień oraz czas utworzenia aktualizacji w UTC. Treść `body` jest
+opcjonalna. Ważność: info, low, medium, high, critical.
+
+Na tym etapie control odczytuje i waliduje rekord, loguje identyfikatory
+oraz zwiększa licznik `alerts.live.records`. Nie zapisuje ani nie wysyła
+alertu. Błędny rekord jest zliczany jako rejected i pomijany. Grupa zapisuje
+offset również dla obsłużonych w ten sposób rekordów. Przyszły konsument
+wymagający odtworzenia historii może użyć nowej grupy w okresie retencji.
+
+Próba z przykładowym rekordem (wymaga `jq`). Klucz przed tabulatorem to
+`alertId`; brak klucza lub inne ID powoduje odrzucenie rekordu.
+
+```sh
+jq -r '.alertId + "\t" + tojson' docs/backend/examples/alert-created.json |
+  docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+    --bootstrap-server localhost:9092 --topic alerts.live --property parse.key=true
+docker compose logs control | grep 'Received alert.created'
+```

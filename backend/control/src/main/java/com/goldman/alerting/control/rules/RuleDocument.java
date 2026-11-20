@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 @Component
 class RuleDocument {
-    record Draft(String name, boolean enabled, int priority, List<String> teams,
+    record Draft(String name, boolean enabled, int priority, List<String> teams, List<String> users,
                  String runbook, ObjectNode definition) {}
 
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory())
@@ -46,10 +46,12 @@ class RuleDocument {
         JsonNode priority = def.remove("priority");
         require(priority == null || priority.isIntegralNumber() && priority.canConvertToInt(), "Invalid priority");
         JsonNode route = def.remove("route");
-        require(route != null && route.isObject() && route.size() == 1 && route.path("teams").isArray()
-                && !route.path("teams").isEmpty(), "Expected nonempty route.teams");
-        Set<String> teams = new LinkedHashSet<>();
-        for (JsonNode team : route.get("teams")) require(teams.add(name(team, "team")), "Duplicate team");
+        require(route != null && route.isObject(), "Expected route object");
+        route.fieldNames().forEachRemaining(key -> require(Set.of("teams", "users").contains(key),
+                "Unknown route field: " + key));
+        List<String> teams = recipients(route, "teams");
+        List<String> users = recipients(route, "users");
+        require(!teams.isEmpty() || !users.isEmpty(), "Expected at least one team or user");
         JsonNode runbook = def.remove("runbook");
         String book = runbook == null ? "auto" : name(runbook, "runbook");
         require(!def.has("runbookMode"), "Use runbook in the YAML document");
@@ -66,7 +68,18 @@ class RuleDocument {
         if (!dedup.has("windowSec")) dedup.put("windowSec", 60);
         for (String field : List.of("severity", "title", "body")) checkTemplate(def.get(field).textValue());
         return new Draft(name, enabled == null || enabled.booleanValue(), priority == null ? 100 : priority.intValue(),
-                List.copyOf(teams), Set.of("auto","none").contains(book) ? null : book, def);
+                teams, users, Set.of("auto","none").contains(book) ? null : book, def);
+    }
+
+    private static List<String> recipients(JsonNode route, String field) {
+        JsonNode values = route.get(field);
+        if (values == null) return List.of();
+        require(values.isArray(), "route." + field + " must be an array");
+        Set<String> names = new LinkedHashSet<>();
+        for (JsonNode value : values) {
+            require(names.add(name(value, "recipient name")), "Duplicate recipient in route." + field);
+        }
+        return List.copyOf(names);
     }
 
     private static void checkTree(JsonNode node, int depth, int[] count) {

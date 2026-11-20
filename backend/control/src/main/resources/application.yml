@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: control
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
   jooq:
     sql-dialect: POSTGRES
   datasource:
@@ -26,3 +32,9 @@ rules:
   kafka:
     enabled: ${RULES_KAFKA_ENABLED:false}
     topic: ${RULES_KAFKA_TOPIC:rules.created.v1}
+
+alerts:
+  kafka:
+    enabled: ${ALERTS_KAFKA_ENABLED:false}
+    topic: ${ALERTS_KAFKA_TOPIC:alerts.live}
+    group: ${ALERTS_KAFKA_GROUP:control-alerts-live-v1}

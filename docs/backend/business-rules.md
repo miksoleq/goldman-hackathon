@@ -36,3 +36,12 @@ configuration revision and Kafka outbox entry in one PostgreSQL transaction.
 Unknown references or invalid definitions reject the whole request. The original
 YAML is retained for editing. Rule creation succeeds independently of the engine.
 The root README contains the request example, response contract and Kafka setup.
+
+Rule routing accepts team names, usernames, or both. At least one recipient is required. A missing user rejects creation. Direct recipients are stored in `rule_users`; `rules.created.v1` carries `userIds` and `teamIds` arrays (empty when omitted). For events published before direct user routing, consumers should treat an absent `userIds` as an empty array.
+
+### Receive engine alerts
+
+With the alerts Kafka listener enabled, control accepts version 1 alert.created
+and alert.updated snapshots from alerts.live. Both direct users and teams are
+supported. Observing a record does not trigger delivery. A malformed record is
+counted and skipped so it cannot block subsequent alerts.

@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "type": "alert.created",
+  "alertId": "048f06df-7fb4-4432-8743-87af3277489f",
+  "eventId": "8de4d3ef-f93d-4217-a0fc-257a7df7872d",
+  "ruleId": "30c08897-ac41-4ccb-8951-0b89be17b2fa",
+  "teamIds": ["54989321-a1a2-4370-bc28-634ebd96ec50"],
+  "userIds": [],
+  "severity": "high",
+  "title": "Timeout w payments",
+  "body": "Workflow WF-42 przekroczył limit czasu.",
+  "count": 1,
+  "occurredAt": "2026-11-21T12:00:00Z"
+}

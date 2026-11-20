@@ -23,6 +23,9 @@ services:
     ports:
       - "127.0.0.1:8082:8082"
     environment:
+      ALERTS_KAFKA_ENABLED: ${ALERTS_KAFKA_ENABLED:-false}
+      ALERTS_KAFKA_TOPIC: ${ALERTS_KAFKA_TOPIC:-alerts.live}
+      ALERTS_KAFKA_GROUP: ${ALERTS_KAFKA_GROUP:-control-alerts-live-v1}
       RULES_KAFKA_TOPIC: ${RULES_KAFKA_TOPIC:-rules.created.v1}
       RULES_KAFKA_ENABLED: ${RULES_KAFKA_ENABLED:-false}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}

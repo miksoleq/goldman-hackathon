@@ -37,3 +37,12 @@ Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the 
 ### Regenerate the control jOOQ model
 
 Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.
+
+### Control live alert tests
+
+Run `mvn -pl control -Dtest=LiveAlertListenerTest test` from `backend/` for
+contract validation. To check delivery, set the test PostgreSQL datasource
+variables and `SPRING_KAFKA_BOOTSTRAP_SERVERS` to a disposable broker with
+topic auto-creation enabled, then run `mvn -pl control -Dtest=LiveAlertKafkaIT test`.
+The test uses its own topic and consumer group and sends a creation, malformed
+record, and update with the same Kafka key.
