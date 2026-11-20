@@ -13,4 +13,5 @@
 ## Coordinate when needed
 
 - Discuss changes to a shared interface or demo setup before editing. Use a PR when you want your teammate to review a risky change before it lands. If you open a PR, say what changed and how to verify it.
+- Before opening every PR, add a business-decision note under [`docs/business-decisions/`](../business-decisions/). Follow [`TEMPLATE.md`](../business-decisions/TEMPLATE.md), use a descriptive filename such as `YYYY-MM-DD-short-topic.md`, and summarize the business decisions made for the change, including their rationale and impact. If the change required no business decisions, record that explicitly. Link the note from the PR description.
 - Run a focused local check for behavior changes and smoke-test the demo when its flow changes. If the team adds CI, start with one fast check and cancel obsolete runs when supported. Keep the last rehearsed commit available as a demo fallback.
