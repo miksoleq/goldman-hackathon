@@ -2,6 +2,14 @@
 
 Build the smallest interface that clearly demonstrates the agreed user journey. Choose tools the team can run and debug within the hackathon. These rules apply to AI-generated code too: verify the running application and report what was actually checked.
 
+## Design and delivery workflow
+
+- Agree on one demo journey and an example API request and response before splitting frontend and backend work.
+- Build a quick, clickable prototype of the main screen in code. Use an existing visual reference when helpful; keep the prototype focused on the demo.
+- Once the visual direction is chosen, record a few decisions in `docs/frontend/DESIGN.md`: colors, typography, spacing, and the style of shared controls. Update it as the design evolves.
+- Integrate the main screen with the real API as early as possible and verify the complete journey. Expand to other screens only when they support the demo.
+- Open the running app with Playwright CLI, inspect screenshots at desktop and narrow mobile widths, exercise the key interactions, and fix visual or functional problems found. A screenshot alone does not verify the API or business result; check the full flow too.
+
 ## Code and structure
 
 - Keep components small and named for their purpose. Separate rendering, reusable UI, and API calls when it makes the code easier to follow; avoid building a framework for a single screen.
@@ -11,7 +19,7 @@ Build the smallest interface that clearly demonstrates the agreed user journey. 
 
 ## Behavior and data
 
-- Implement the agreed API contract and use real responses for the demo flow. Clearly label mock data; do not present placeholders, invented results, or hard-coded success as real behavior.
+- Implement the agreed API contract and use real responses for the demo flow. Do not present placeholders, invented results, or hard-coded success as real behavior.
 - Handle loading, empty, success, validation error, and request failure states where relevant. Explain errors in plain language and let users retry when appropriate. Do not reveal stack traces or sensitive data.
 - Prevent accidental duplicate submissions while a request is pending. Keep entered values when a recoverable request fails.
 - Validate inputs and show useful messages near the affected fields. Handle slow or failed requests and malformed or unexpected responses without leaving a broken screen.
