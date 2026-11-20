@@ -28,3 +28,11 @@ Use one subsection per rule with a short, descriptive heading.
 - **Exceptions and boundaries** — describe relevant edge cases and their exact outcomes.
 - **Reason** — record the brief requirement or team decision behind the rule.
 - **Verification** — link to the test or name the test case that checks the rule.
+
+### Create a rule in control
+
+A valid editor document creates the rule, team links, version 1, audit entry,
+configuration revision and Kafka outbox entry in one PostgreSQL transaction.
+Unknown references or invalid definitions reject the whole request. The original
+YAML is retained for editing. Rule creation succeeds independently of the engine.
+The root README contains the request example, response contract and Kafka setup.

@@ -1,5 +1,7 @@
 # Persistence
 
+- Implement application reads and writes with the jOOQ DSL and generated tables and fields, or with Hibernate using mapped entities, repositories, and the JPA Criteria API. Do not embed SQL strings in application code, including through JDBC, native Hibernate queries, or jOOQ plain SQL templates. Keep versioned Flyway migrations in SQL.
+
 - Keep query and storage details inside the persistence boundary. Return application data from repositories and keep driver or generated types local to the adapter.
 - Use bound query parameters and allowlists for user-selectable sort or filter fields. Give paginated queries a deterministic order with a unique tie-breaker. Batch related lookups if row-by-row queries become a bottleneck.
 - Put schema changes in versioned migrations when the project uses them. Add a new migration for changes to a schema already used by a teammate or deployment. Tell your teammate about any migration or seed steps they need to run.

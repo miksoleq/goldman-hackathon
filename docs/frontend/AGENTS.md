@@ -15,4 +15,6 @@ Read the [frontend guidelines](README.md) before working in this repository. Rea
 
 ## Build, run, and test
 
+For features and bug fixes, add or update automated unit tests for changed UI logic and integration tests for interactions between components, forms, and the API client. Keep the tests alongside the change, run the relevant suites before handoff, and report the commands, results, and any blockers.
+
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.

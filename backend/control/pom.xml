@@ -25,7 +25,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -39,6 +39,29 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.re2j</groupId>
+            <artifactId>re2j</artifactId>
+            <version>1.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -57,4 +80,47 @@
             </plugin>
         </plugins>
     </build>
+    <!-- Regenerate after Flyway has migrated a disposable PostgreSQL database. -->
+    <profiles>
+        <profile>
+            <id>jooq-codegen</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jooq</groupId>
+                        <artifactId>jooq-codegen-maven</artifactId>
+                        <version>3.19.35</version>
+                        <executions>
+                            <execution>
+                                <phase>generate-sources</phase>
+                                <goals><goal>generate</goal></goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <jdbc>
+                                <url>${env.SPRING_DATASOURCE_URL}</url>
+                                <user>${env.SPRING_DATASOURCE_USERNAME}</user>
+                                <password>${env.SPRING_DATASOURCE_PASSWORD}</password>
+                            </jdbc>
+                            <generator>
+                                <database>
+                                    <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                                    <inputSchema>public</inputSchema>
+                                    <includes>teams|rules|runbooks|rule_teams|rule_versions|config_version|audit_log|rule_created_outbox</includes>
+                                </database>
+                                <generate>
+                                    <relations>false</relations>
+                                    <indexes>false</indexes>
+                                </generate>
+                                <target>
+                                    <packageName>com.goldman.alerting.control.db</packageName>
+                                    <directory>src/main/java</directory>
+                                </target>
+                            </generator>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
