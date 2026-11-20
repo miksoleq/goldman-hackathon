@@ -8,6 +8,7 @@ public record MessageEnvelope(
         String adapter,
         long receivedAt,
         String contentType,
-        JsonNode payload
+        JsonNode payload,
+        java.util.List<String> matchedRuleIds
 ) {
 }

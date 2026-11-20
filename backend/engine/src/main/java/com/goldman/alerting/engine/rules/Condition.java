@@ -24,7 +24,8 @@ public sealed interface Condition permits Condition.All, Condition.Any, Conditio
         CONTAINS,
         STARTS_WITH,
         ENDS_WITH,
-        REGEX
+        REGEX,
+        JSON_SCHEMA
     }
 
     record All(List<Condition> conditions) implements Condition {
@@ -51,6 +52,9 @@ public sealed interface Condition permits Condition.All, Condition.Any, Conditio
             Objects.requireNonNull(operator, "operator");
             value = value == null ? null : value.deepCopy();
             validateValue(operator, value);
+            if (operator == Operator.JSON_SCHEMA && ignoreCase) {
+                throw new InvalidRuleDefinitionException("jsonSchema does not support ignoreCase");
+            }
         }
 
         /** Returns a copy so callers cannot mutate an immutable rule snapshot. */
@@ -191,6 +195,9 @@ public sealed interface Condition permits Condition.All, Condition.Any, Conditio
                 if (!value.isTextual() || value.textValue().isEmpty() || value.textValue().length() > 500) {
                     throw new InvalidRuleDefinitionException("regex expects a string of 1 to 500 characters");
                 }
+            }
+            case JSON_SCHEMA -> {
+                if (!value.isObject()) throw new InvalidRuleDefinitionException("jsonSchema expects an object");
             }
             case EQ, NEQ, CONTAINS -> {
                 // Any JSON value is valid for these operators.

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import com.goldman.alerting.engine.rules.Rule;
+import com.goldman.alerting.engine.rules.RuleIndexManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +16,17 @@ public class IngestionService {
     private final ObjectMapper objectMapper;
     private final IngestPublisher publisher;
     private final int maxPayloadBytes;
+    private final RuleIndexManager rules;
 
     public IngestionService(
             ObjectMapper objectMapper,
             IngestPublisher publisher,
+            RuleIndexManager rules,
             @Value("${ingest.max-payload-bytes:1048576}") int maxPayloadBytes
     ) {
         this.objectMapper = objectMapper;
         this.publisher = publisher;
+        this.rules = rules;
         if (maxPayloadBytes < 1) {
             throw new IllegalArgumentException("ingest.max-payload-bytes must be positive");
         }
@@ -47,13 +52,21 @@ public class IngestionService {
     }
 
     public MessageEnvelope accept(String source, String adapter, JsonNode payload) {
+        String eventId = UUID.randomUUID().toString();
+        long receivedAt = System.currentTimeMillis();
+        var event = objectMapper.createObjectNode();
+        event.set("payload", payload);
+        event.putObject("meta").put("source", source).put("adapter", adapter)
+                .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", "json");
+        var matches = rules.match(event).stream().map(Rule::id).toList();
         MessageEnvelope envelope = new MessageEnvelope(
-                UUID.randomUUID().toString(),
+                eventId,
                 source,
                 adapter,
-                System.currentTimeMillis(),
+                receivedAt,
                 "json",
-                payload
+                payload,
+                matches
         );
         publisher.publish(envelope);
         return envelope;

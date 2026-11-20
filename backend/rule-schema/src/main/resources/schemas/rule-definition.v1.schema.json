@@ -153,7 +153,8 @@
             "contains",
             "startsWith",
             "endsWith",
-            "regex"
+            "regex",
+            "jsonSchema"
           ]
         },
         "value": true,
@@ -299,8 +300,69 @@
               "value"
             ]
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "jsonSchema"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/shape"
+              },
+              "ignoreCase": {
+                "const": false
+              }
+            }
+          }
         }
       ]
+    },
+    "shape": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/shape"
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        },
+        "items": {
+          "$ref": "#/$defs/shape"
+        }
+      }
     }
   }
 }

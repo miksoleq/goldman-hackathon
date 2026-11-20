@@ -227,6 +227,10 @@ public final class RuleIndex {
         JsonNode value = leaf.value();
         boolean ignoreCase = leaf.ignoreCase();
 
+        if (operator == Condition.Operator.JSON_SCHEMA) {
+            Predicate<JsonNode> matchesShape = com.goldman.alerting.schema.EventShape.compile(value);
+            return event -> path.anyMatch(event, matchesShape);
+        }
         if (operator == Condition.Operator.EXISTS) {
             boolean expectedToExist = value.booleanValue();
             return event -> path.exists(event) == expectedToExist;

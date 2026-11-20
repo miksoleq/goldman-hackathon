@@ -114,6 +114,7 @@ public final class ConditionParser {
             case "contains" -> Condition.Operator.CONTAINS;
             case "startsWith" -> Condition.Operator.STARTS_WITH;
             case "endsWith" -> Condition.Operator.ENDS_WITH;
+            case "jsonSchema" -> Condition.Operator.JSON_SCHEMA;
             case "regex" -> Condition.Operator.REGEX;
             default -> throw new InvalidRuleDefinitionException("Unsupported rule operator: " + source);
         };
