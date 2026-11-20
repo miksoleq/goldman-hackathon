@@ -1,4 +1,4 @@
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./pom.xml
 COPY control/pom.xml ./control/pom.xml
@@ -7,7 +7,7 @@ COPY engine/pom.xml ./engine/pom.xml
 COPY engine/src ./engine/src
 RUN mvn -B -pl control,engine -am package -DskipTests
 
-FROM eclipse-temurin:25-jre AS runtime
+FROM eclipse-temurin:21-jre AS runtime
 WORKDIR /app
 
 FROM runtime AS engine
