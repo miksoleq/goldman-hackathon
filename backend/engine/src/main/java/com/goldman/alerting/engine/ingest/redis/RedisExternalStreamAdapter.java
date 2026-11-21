@@ -37,6 +37,7 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
     private final String consumerGroup;
     private final String consumerName;
     private final int batchSize;
+    private final int maxBatchesPerPoll;
     private volatile boolean ready;
 
     public RedisExternalStreamAdapter(
@@ -45,7 +46,8 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             @Value("${ingest.redis.external-stream:ingest:external}") String externalStream,
             @Value("${ingest.redis.consumer-group:engine}") String consumerGroup,
             @Value("${ingest.redis.consumer-name:${random.uuid}}") String consumerName,
-            @Value("${ingest.redis.batch-size:100}") int batchSize
+            @Value("${ingest.redis.batch-size:100}") int batchSize,
+            @Value("${ingest.redis.max-batches-per-poll:10}") int maxBatchesPerPoll
     ) {
         this.redisTemplate = redisTemplate;
         this.ingestionService = ingestionService;
@@ -56,6 +58,10 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             throw new IllegalArgumentException("ingest.redis.batch-size must be positive");
         }
         this.batchSize = batchSize;
+        if (maxBatchesPerPoll < 1) {
+            throw new IllegalArgumentException("ingest.redis.max-batches-per-poll must be positive");
+        }
+        this.maxBatchesPerPoll = maxBatchesPerPoll;
     }
 
     @Override
@@ -84,13 +90,21 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             return;
         }
         StreamOperations<String, String, String> streams = redisTemplate.opsForStream();
+        for (int batch = 0; batch < maxBatchesPerPoll; batch++) {
+            if (processBatch(streams) < batchSize) {
+                return;
+            }
+        }
+    }
+
+    private int processBatch(StreamOperations<String, String, String> streams) {
         List<MapRecord<String, String, String>> records = streams.read(
                 Consumer.from(consumerGroup, consumerName),
                 StreamReadOptions.empty().count(batchSize),
                 StreamOffset.create(externalStream, ReadOffset.lastConsumed())
         );
         if (records == null || records.isEmpty()) {
-            return;
+            return 0;
         }
 
         List<RecordId> acknowledged = new ArrayList<>(records.size());
@@ -102,6 +116,7 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
         if (!acknowledged.isEmpty()) {
             streams.acknowledge(externalStream, consumerGroup, acknowledged.toArray(RecordId[]::new));
         }
+        return records.size();
     }
 
     private boolean processRecord(MapRecord<String, String, String> record) {

@@ -47,6 +47,7 @@ ingest:
     consumer-group: ${INGEST_REDIS_CONSUMER_GROUP:engine}
     consumer-name: ${INSTANCE_ID:${random.uuid}}
     batch-size: ${INGEST_REDIS_BATCH_SIZE:100}
+    max-batches-per-poll: ${INGEST_REDIS_MAX_BATCHES_PER_POLL:10}
     poll-interval-ms: ${INGEST_REDIS_POLL_INTERVAL_MS:250}
   kafka:
     enabled: ${INGEST_KAFKA_ENABLED:false}

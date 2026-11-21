@@ -23,7 +23,7 @@ class RedisExternalStreamAdapterIT {
         String stream = "it:external:" + UUID.randomUUID();
         var ingestion = mock(IngestionService.class);
         doThrow(new IllegalStateException("unavailable")).when(ingestion).accept("failed", "redis", "{}");
-        var adapter = new RedisExternalStreamAdapter(redis, ingestion, stream, "group", "consumer", 200);
+        var adapter = new RedisExternalStreamAdapter(redis, ingestion, stream, "group", "consumer", 2, 10);
         try {
             adapter.run(null);
             var operations = redis.<String, String>opsForStream();
