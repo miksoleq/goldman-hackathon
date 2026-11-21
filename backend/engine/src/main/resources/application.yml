@@ -21,6 +21,8 @@ spring:
       timeout: 2s
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:engine}
       auto-offset-reset: earliest
@@ -47,10 +49,14 @@ ingest:
     consumer-group: ${INGEST_REDIS_CONSUMER_GROUP:engine}
     consumer-name: ${INSTANCE_ID:${random.uuid}}
     batch-size: ${INGEST_REDIS_BATCH_SIZE:100}
+    max-batches-per-poll: ${INGEST_REDIS_MAX_BATCHES_PER_POLL:10}
     poll-interval-ms: ${INGEST_REDIS_POLL_INTERVAL_MS:250}
+    reclaim-idle-ms: ${INGEST_REDIS_RECLAIM_IDLE_MS:30000}
+    reclaim-interval-ms: ${INGEST_REDIS_RECLAIM_INTERVAL_MS:5000}
   kafka:
     enabled: ${INGEST_KAFKA_ENABLED:false}
     topic: ${INGEST_KAFKA_TOPIC:ingest.external}
+    offset-ttl-seconds: ${KAFKA_OFFSET_TTL_SECONDS:604800}
 
 rules:
   redis:

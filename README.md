@@ -16,6 +16,8 @@ Potem uruchom cały zestaw. Frontend jest dostępny na porcie `8080`, ingest HTT
 docker compose up --build
 ```
 
+Compose starts three Engine replicas behind HAProxy on port `8081`. Set `ENGINE_REPLICAS` to change the replica count; set `ENGINE_PORT` to change the load-balancer port.
+
 Dashboard monitoringu jest dostępny pod [http://localhost:8080](http://localhost:8080). Pokazuje ostatnie wiadomości z Redis Streams, reguły i runbooki z bazy Control oraz ostatnie alerty zapisane w inboxie Control.
 
 Opcjonalnie uruchom też Kafka KRaft i listener Kafka:
@@ -26,6 +28,7 @@ docker compose --profile kafka up --build
 ```
 
 Domyślny topic to `ingest.external`; broker dostępny lokalnie pod `localhost:9092`.
+Nowe topiki dostają domyślnie 6 partycji (`KAFKA_NUM_PARTITIONS`); liczba partycji powinna być co najmniej równa liczbie aktywnych wątków konsumentów. Zwiększenie tej zmiennej nie rozszerza już istniejącego topiku. Kafka zapisuje offset kontrolny na partycję w Redisie na 7 dni (`KAFKA_OFFSET_TTL_SECONDS`), więc retry nie publikuje ponownie tego samego rekordu.
 
 ## Powiadomienia SMS i e-mail
 
@@ -101,6 +104,7 @@ Producenci zapisują do streamu `ingest:external` pola `payload` (tekst zawieraj
 ```sh
 redis-cli XADD ingest:external '*' source payments payload '{"type":"payment_failed"}'
 ```
+Engine odzyskuje wiadomości pozostawione jako pending po awarii repliki. Publikacja zdarzenia i ACK rekordu wejściowego dzieją się w jednym skrypcie Lua, więc retry nie dubluje zdarzenia ani licznika alertu.
 
 ### Kafka
 
@@ -193,7 +197,8 @@ dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, pow
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
 
-Uruchom oba serwisy poleceniem `docker compose up --build -d postgres redis control engine`.
+Uruchom oba serwisy poleceniem `docker compose up --build -d postgres redis control engine engine-lb`.
+Compose uruchamia trzy repliki Engine za HAProxy; ich liczbę zmienia `ENGINE_REPLICAS`.
 Compose domyślnie włącza dystrybucję reguł. Poza Compose ustaw w obu serwisach
 `RULES_REDIS_ENABLED=true` i wskaż ten sam Redis.
 

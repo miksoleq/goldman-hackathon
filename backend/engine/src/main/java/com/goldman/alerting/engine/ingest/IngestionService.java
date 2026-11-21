@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,6 +52,15 @@ public class IngestionService {
     }
 
     public MessageEnvelope accept(String source, String adapter, String rawJson) {
+        return accept(source, adapter, rawJson, null);
+    }
+
+    public MessageEnvelope accept(
+            String source,
+            String adapter,
+            String rawJson,
+            IngestPublisher.BrokerRecord brokerRecord
+    ) {
         if (rawJson == null) {
             throw new InvalidJsonException();
         }
@@ -62,28 +70,53 @@ public class IngestionService {
             if (payload == null || payload.isMissingNode()) {
                 throw new InvalidJsonException();
             }
-            return accept(source, adapter, payload);
+            return publish(source, adapter, "json", payload, brokerRecord);
         } catch (JsonProcessingException exception) {
             throw new InvalidJsonException();
         }
     }
 
     public MessageEnvelope accept(String source, String adapter, JsonNode payload) {
-        return publish(source, adapter, "json", payload);
+        return publish(source, adapter, "json", payload, null);
     }
 
     public MessageEnvelope acceptText(String source, String adapter, String message) {
         checkSize(message);
-        return publish(source, adapter, "text", objectMapper.createObjectNode().put("message", message));
+        return publish(source, adapter, "text", objectMapper.createObjectNode().put("message", message), null);
     }
 
     private void checkSize(String input) {
-        if (input.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
+        if (exceedsUtf8Limit(input, maxPayloadBytes)) {
             throw new PayloadTooLargeException(maxPayloadBytes);
         }
     }
 
-    private MessageEnvelope publish(String source, String adapter, String contentType, JsonNode payload) {
+    static boolean exceedsUtf8Limit(String input, int limit) {
+        int remaining = limit;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            int bytes;
+            if (c < 0x80) bytes = 1;
+            else if (c < 0x800) bytes = 2;
+            else if (Character.isHighSurrogate(c) && i + 1 < input.length()
+                    && Character.isLowSurrogate(input.charAt(i + 1))) {
+                bytes = 4;
+                i++;
+            } else if (Character.isSurrogate(c)) bytes = 1; // UTF-8 encoder replaces malformed input with '?'.
+            else bytes = 3;
+            if (remaining < bytes) return true;
+            remaining -= bytes;
+        }
+        return false;
+    }
+
+    private MessageEnvelope publish(
+            String source,
+            String adapter,
+            String contentType,
+            JsonNode payload,
+            IngestPublisher.BrokerRecord brokerRecord
+    ) {
         long receivedAt = System.currentTimeMillis();
         String eventId = UlidCreator.getUlid(receivedAt).toString();
         var event = objectMapper.createObjectNode();
@@ -113,7 +146,11 @@ public class IngestionService {
                 payload,
                 matches.stream().map(Rule::id).toList()
         );
-        publisher.publish(envelope, alerts);
+        if (brokerRecord == null) {
+            publisher.publish(envelope, alerts);
+        } else {
+            publisher.publish(envelope, alerts, brokerRecord);
+        }
         return envelope;
     }
 }

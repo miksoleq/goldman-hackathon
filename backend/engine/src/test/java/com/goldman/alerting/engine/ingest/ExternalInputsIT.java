@@ -45,7 +45,7 @@ class ExternalInputsIT {
     }
 
     @Test void restartingRedisInputReusesTheExistingConsumerGroup() {
-        var restarted = new RedisExternalStreamAdapter(redis, ingestion, EXTERNAL, "engine", "replacement", 100);
+        var restarted = new RedisExternalStreamAdapter(redis, ingestion, EXTERNAL, "engine", "replacement", 100, 10);
         assertDoesNotThrow(() -> restarted.run(null));
         assertEquals(1, redis.opsForStream().groups(EXTERNAL).size());
     }
@@ -61,6 +61,15 @@ class ExternalInputsIT {
             assertTrue(events.getFirst().payload().isNull());
             assertEquals(1, events.getLast().payload().get(0).intValue());
         });
+    }
+
+    @Test void textLimitCountsUtf8BytesBeforePublishingToRedis() {
+        String source = "utf8-limit-" + UUID.randomUUID();
+        var accepted = ingestion.acceptText(source, "integration", "\ud83d\ude00\ud83d\ude00\ud83d\ude00");
+        assertThrows(PayloadTooLargeException.class,
+                () -> ingestion.acceptText(source, "integration", "\ud83d\ude00\ud83d\ude00\ud83d\ude00x"));
+        assertEquals(List.of(accepted.eventId()), envelopes("integration").stream()
+                .filter(event -> event.source().equals(source)).map(MessageEnvelope::eventId).toList());
     }
 
     @Test void fileResumesOnlyCompleteLinesAndSkipsOversizedRecords(@TempDir Path dir) throws Exception {
