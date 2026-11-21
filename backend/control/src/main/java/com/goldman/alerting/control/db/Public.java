@@ -6,6 +6,7 @@ package com.goldman.alerting.control.db;
 
 import com.goldman.alerting.control.db.tables.AuditLog;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
+import com.goldman.alerting.control.db.tables.LiveAlertInbox;
 import com.goldman.alerting.control.db.tables.RuleCreatedOutbox;
 import com.goldman.alerting.control.db.tables.RuleTeams;
 import com.goldman.alerting.control.db.tables.RuleUsers;
@@ -45,6 +46,11 @@ public class Public extends SchemaImpl {
      * The table <code>public.config_version</code>.
      */
     public final ConfigVersion CONFIG_VERSION = ConfigVersion.CONFIG_VERSION;
+
+    /**
+     * The table <code>public.live_alert_inbox</code>.
+     */
+    public final LiveAlertInbox LIVE_ALERT_INBOX = LiveAlertInbox.LIVE_ALERT_INBOX;
 
     /**
      * The table <code>public.rule_created_outbox</code>.
@@ -104,6 +110,7 @@ public class Public extends SchemaImpl {
         return Arrays.asList(
             AuditLog.AUDIT_LOG,
             ConfigVersion.CONFIG_VERSION,
+            LiveAlertInbox.LIVE_ALERT_INBOX,
             RuleCreatedOutbox.RULE_CREATED_OUTBOX,
             RuleTeams.RULE_TEAMS,
             RuleUsers.RULE_USERS,

@@ -6,6 +6,7 @@ package com.goldman.alerting.control.db;
 
 import com.goldman.alerting.control.db.tables.AuditLog;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
+import com.goldman.alerting.control.db.tables.LiveAlertInbox;
 import com.goldman.alerting.control.db.tables.RuleCreatedOutbox;
 import com.goldman.alerting.control.db.tables.RuleTeams;
 import com.goldman.alerting.control.db.tables.RuleUsers;
@@ -16,6 +17,7 @@ import com.goldman.alerting.control.db.tables.Teams;
 import com.goldman.alerting.control.db.tables.Users;
 import com.goldman.alerting.control.db.tables.records.AuditLogRecord;
 import com.goldman.alerting.control.db.tables.records.ConfigVersionRecord;
+import com.goldman.alerting.control.db.tables.records.LiveAlertInboxRecord;
 import com.goldman.alerting.control.db.tables.records.RuleCreatedOutboxRecord;
 import com.goldman.alerting.control.db.tables.records.RuleTeamsRecord;
 import com.goldman.alerting.control.db.tables.records.RuleUsersRecord;
@@ -45,6 +47,7 @@ public class Keys {
 
     public static final UniqueKey<AuditLogRecord> AUDIT_LOG_PKEY = Internal.createUniqueKey(AuditLog.AUDIT_LOG, DSL.name("audit_log_pkey"), new TableField[] { AuditLog.AUDIT_LOG.ID }, true);
     public static final UniqueKey<ConfigVersionRecord> CONFIG_VERSION_PKEY = Internal.createUniqueKey(ConfigVersion.CONFIG_VERSION, DSL.name("config_version_pkey"), new TableField[] { ConfigVersion.CONFIG_VERSION.ID }, true);
+    public static final UniqueKey<LiveAlertInboxRecord> LIVE_ALERT_INBOX_PKEY = Internal.createUniqueKey(LiveAlertInbox.LIVE_ALERT_INBOX, DSL.name("live_alert_inbox_pkey"), new TableField[] { LiveAlertInbox.LIVE_ALERT_INBOX.ALERT_ID }, true);
     public static final UniqueKey<RuleCreatedOutboxRecord> RULE_CREATED_OUTBOX_PKEY = Internal.createUniqueKey(RuleCreatedOutbox.RULE_CREATED_OUTBOX, DSL.name("rule_created_outbox_pkey"), new TableField[] { RuleCreatedOutbox.RULE_CREATED_OUTBOX.CONFIG_VERSION }, true);
     public static final UniqueKey<RuleTeamsRecord> RULE_TEAMS_PKEY = Internal.createUniqueKey(RuleTeams.RULE_TEAMS, DSL.name("rule_teams_pkey"), new TableField[] { RuleTeams.RULE_TEAMS.RULE_ID, RuleTeams.RULE_TEAMS.TEAM_ID }, true);
     public static final UniqueKey<RuleUsersRecord> RULE_USERS_PKEY = Internal.createUniqueKey(RuleUsers.RULE_USERS, DSL.name("rule_users_pkey"), new TableField[] { RuleUsers.RULE_USERS.RULE_ID, RuleUsers.RULE_USERS.USER_ID }, true);

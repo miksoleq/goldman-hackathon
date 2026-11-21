@@ -1,6 +1,7 @@
 package com.goldman.alerting.control.rules;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.goldman.alerting.contracts.RuleCreated;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.springframework.stereotype.Service;
@@ -72,17 +73,12 @@ class RuleCreation {
                 .set(AUDIT_LOG.ENTITY_TYPE, "rule")
                 .set(AUDIT_LOG.ENTITY_ID, id.toString()).execute();
 
-        var payload = json.createObjectNode().put("type", "rule.created").put("ruleId", id.toString())
-                .put("version", 1).put("configVersion", revision).put("name", draft.name())
-                .put("enabled", draft.enabled()).put("priority", draft.priority());
-        payload.set("userIds", json.valueToTree(users));
-        payload.set("teamIds", json.valueToTree(teams));
-        payload.set("runbookId", json.valueToTree(runbook));
-        payload.set("definition", draft.definition());
+        var payload = new RuleCreated(RuleCreated.TYPE, id.toString(), 1, revision, draft.name(),
+                draft.enabled(), draft.priority(), teams, users, runbook, draft.definition());
         db.insertInto(RULE_CREATED_OUTBOX)
                 .set(RULE_CREATED_OUTBOX.CONFIG_VERSION, revision)
                 .set(RULE_CREATED_OUTBOX.RULE_ID, id)
-                .set(RULE_CREATED_OUTBOX.PAYLOAD, JSONB.valueOf(payload.toString())).execute();
+                .set(RULE_CREATED_OUTBOX.PAYLOAD, JSONB.valueOf(json.valueToTree(payload).toString())).execute();
         return new Created(id, 1, revision);
     }
 

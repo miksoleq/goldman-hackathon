@@ -1,29 +1,94 @@
 package com.goldman.alerting.control.alerts;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.goldman.alerting.schema.LiveAlert;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.listener.ChannelTopic;
-import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import com.goldman.alerting.contracts.LiveAlert;
+import java.time.Duration;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.core.StreamOperations;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-@Configuration
+@Component
+@EnableScheduling
 class LiveAlertSubscription {
-    @Bean
-    RedisMessageListenerContainer liveAlerts(RedisConnectionFactory connection, ObjectMapper mapper,
-                                            ApplicationEventPublisher events) {
-        var container = new RedisMessageListenerContainer();
-        container.setConnectionFactory(connection);
-        container.addMessageListener((message, pattern) -> {
-            try {
-                var alert = mapper.readValue(message.getBody(), LiveAlert.class);
-                if (alert.v() == 1 && "alert.created".equals(alert.type())) events.publishEvent(alert);
-            } catch (java.io.IOException e) {
-                throw new IllegalArgumentException("Invalid alerts.live message", e);
+    static final String GROUP = "control";
+    private static final int BATCH = 64;
+    private static final Logger log = LoggerFactory.getLogger(LiveAlertSubscription.class);
+    private final Consumer consumer = Consumer.from(GROUP, UUID.randomUUID().toString());
+    private final StreamOperations<String, String, String> streams;
+    private final String stream;
+    private final Duration claimIdle;
+    private final ObjectMapper mapper;
+    private final AlertInbox inbox;
+    private boolean groupReady;
+    private Range<String> pendingRange = Range.unbounded();
+
+    LiveAlertSubscription(StringRedisTemplate redis, ObjectMapper mapper, AlertInbox inbox,
+                          @Value("${alerts.stream:" + LiveAlert.STREAM + "}") String stream,
+                          @Value("${alerts.claim-idle:30s}") Duration claimIdle) {
+        this.streams = redis.opsForStream();
+        this.stream = stream;
+        this.claimIdle = claimIdle;
+        this.mapper = mapper;
+        this.inbox = inbox;
+    }
+
+    @Scheduled(fixedDelayString = "${alerts.poll-ms:250}")
+    public void poll() {
+        try {
+            if (!groupReady) {
+                try {
+                    streams.createGroup(stream, ReadOffset.from("0-0"), GROUP);
+                } catch (RuntimeException e) {
+                    if (!org.springframework.core.NestedExceptionUtils.getMostSpecificCause(e)
+                            .getMessage().startsWith("BUSYGROUP")) throw e;
+                }
+                groupReady = true;
             }
-        }, new ChannelTopic(LiveAlert.CHANNEL));
-        return container;
+            recoverPending();
+            var fresh = streams.read(consumer, StreamReadOptions.empty().count(BATCH),
+                    StreamOffset.create(stream, ReadOffset.lastConsumed()));
+            if (fresh != null) fresh.forEach(this::receive);
+        } catch (RuntimeException e) {
+            groupReady = false;
+            throw e;
+        }
+    }
+
+    private void recoverPending() {
+        var pending = streams.pending(stream, GROUP, pendingRange, BATCH);
+        var expired = new java.util.ArrayList<RecordId>();
+        for (var entry : pending) {
+            if (entry.getElapsedTimeSinceLastDelivery().compareTo(claimIdle) >= 0) expired.add(entry.getId());
+        }
+        pendingRange = pending.size() == BATCH
+                ? Range.rightUnbounded(Range.Bound.exclusive(pending.get(BATCH - 1).getId().getValue()))
+                : Range.unbounded();
+        if (!expired.isEmpty()) {
+            streams.claim(stream, GROUP, consumer.getName(), claimIdle, expired.toArray(RecordId[]::new))
+                    .forEach(this::receive);
+        }
+    }
+
+    private void receive(MapRecord<String, String, String> record) {
+        try {
+            String payload = record.getValue().get("alert");
+            LiveAlert alert = mapper.readValue(payload, LiveAlert.class);
+            if (alert.v() != 1 || !"alert.created".equals(alert.type()) || alert.alertId() == null) {
+                throw new IllegalArgumentException("Invalid alert envelope");
+            }
+            inbox.receive(alert, payload);
+            streams.acknowledge(stream, GROUP, record.getId());
+            log.debug("Received alert ruleId={} eventId={} alertId={}", alert.ruleId(), alert.eventId(), alert.alertId());
+        } catch (Exception e) {
+            log.warn("Alert stream entry {} remains pending ({})", record.getId(), e.getClass().getSimpleName());
+        }
     }
 }

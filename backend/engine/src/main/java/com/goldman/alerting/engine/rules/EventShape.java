@@ -1,4 +1,4 @@
-package com.goldman.alerting.schema;
+package com.goldman.alerting.engine.rules;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

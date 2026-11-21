@@ -9,11 +9,7 @@ import com.goldman.alerting.engine.EngineApplication;
 import com.goldman.alerting.engine.rules.RuleIndex;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
 import java.time.Duration;
-import java.util.concurrent.LinkedBlockingQueue;
-import org.springframework.data.redis.listener.ChannelTopic;
-import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import java.util.concurrent.TimeUnit;
-import com.goldman.alerting.schema.LiveAlert;
+import com.goldman.alerting.contracts.LiveAlert;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,6 +48,7 @@ class RedisRuleCreatedAdapterIT {
     @org.springframework.test.context.DynamicPropertySource
     static void streamProperty(org.springframework.test.context.DynamicPropertyRegistry registry) {
         registry.add("ingest.redis.internal-stream", () -> stream);
+        registry.add("alerts.stream", () -> stream + ":alerts");
     }
 
     @Autowired
@@ -69,17 +66,13 @@ class RedisRuleCreatedAdapterIT {
         Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertEquals(List.of(id), ids(manager.match(paymentFailed))));
 
-        var messages = new LinkedBlockingQueue<byte[]>();
-        var listener = new RedisMessageListenerContainer();
-        listener.setConnectionFactory(redis.getConnectionFactory());
-        listener.addMessageListener((msg, pattern) -> messages.add(msg.getBody()), new ChannelTopic(LiveAlert.CHANNEL));
-        listener.afterPropertiesSet();
+        var alerts = redis.<String, String>opsForStream();
+        String alertStream = stream + ":alerts";
         try {
-            listener.start();
             var accepted = ingestion.accept("it", "http", paymentFailed.get("payload"));
-            var messageBytes = messages.poll(10, TimeUnit.SECONDS);
-            org.junit.jupiter.api.Assertions.assertNotNull(messageBytes);
-            var wire = objectMapper.readTree(messageBytes);
+            var messages = alerts.range(alertStream, org.springframework.data.domain.Range.unbounded());
+            assertEquals(1, messages.size());
+            var wire = objectMapper.readTree(messages.get(0).getValue().get("alert"));
             assertEquals("alert.created", wire.path("type").asText());
             assertEquals(1, wire.path("v").intValue());
             assertEquals(1, wire.path("count").intValue());
@@ -93,10 +86,9 @@ class RedisRuleCreatedAdapterIT {
             assertEquals(List.of(id), accepted.matchedRuleIds());
             var otherShape = ingestion.accept("it", "http", "{\"kind\":\"payment_failed\",\"extra\":1}");
             assertTrue(otherShape.matchedRuleIds().isEmpty());
-            org.junit.jupiter.api.Assertions.assertNull(messages.poll(200, TimeUnit.MILLISECONDS));
+            assertEquals(1L, alerts.size(alertStream));
         } finally {
-            listener.destroy();
-            redis.delete(stream);
+            redis.delete(List.of(stream, alertStream));
         }
 
         RuleIndex createdSnapshot = manager.snapshot();

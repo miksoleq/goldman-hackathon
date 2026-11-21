@@ -52,7 +52,7 @@ W `V1__init.sql` są cztery enumy statusów, tabele konfiguracji (zespoły, uży
 
 Postgres przechowuje dane w nazwanym wolumenie `postgres_data`, więc zwykłe zatrzymanie lub usunięcie kontenera ich nie kasuje. `docker compose down -v` usuwa ten wolumen i wszystkie dane; używaj tego tylko wtedy, gdy świadomie chcesz wyzerować bazę. Nowe zmiany schematu zapisuj w kolejnych plikach w katalogu migracji, np. `V2__add_column.sql`; `control` zastosuje je przy następnym starcie.
 
-Na tym etapie `control` zajmuje się połączeniem z bazą, migracjami i raportowaniem wersji przez `GET /internal/migrations`. Nie ma jeszcze CRUD konfiguracji ani alertów. `engine` nadal nie łączy się bezpośrednio z PostgreSQL.
+Control przyjmuje reguły przez `POST /api/rules`, zapisuje je w PostgreSQL i odbiera dopasowane alerty. Engine buduje indeks w pamięci i przyjmuje zdarzenia. Obie aplikacje pakują bibliotekę Maven `backend/contracts` ze schematem definicji reguły i formatami komunikatów.
 
 ## Wejścia
 
@@ -159,4 +159,12 @@ do wysłania przez Redis.
 
 ### Alert po dopasowaniu
 
-Aby kierować alert tylko do wybranych osób, ustaw np. `route: {users: [alice]}`. Można też podać zespoły i osoby w jednej regule. Po dopasowaniu Engine wysyła komunikat `alert.created` przez Redis Pub/Sub na `alerts.live`, a Control odbiera go jako zdarzenie aplikacyjne. W środowisku demo komunikat można podejrzeć przed wysłaniem eventu poleceniem `docker compose exec redis redis-cli SUBSCRIBE alerts.live`. Przykład i zasady dostarczania opisuje [kontrakt alertów](docs/backend/business-decisions/2026-11-21-live-alerts.md).
+Aby kierować alert tylko do wybranych osób, ustaw np. `route: {users: [alice]}`. Można też podać zespoły i osoby w jednej regule. Po dopasowaniu Engine dopisuje komunikat `alert.created` do strumienia Redis `alerts.live` w polu `alert`. Control zapisuje go w PostgreSQL w tabeli `live_alert_inbox` i potwierdza odbiór po zatwierdzeniu transakcji. Po restarcie odczytuje zaległe wpisy. Ostatni komunikat można podejrzeć poleceniem `docker compose exec redis redis-cli XREVRANGE alerts.live + - COUNT 1`. Przykład i zasady dostarczania opisuje [kontrakt alertów](docs/backend/business-decisions/2026-11-21-live-alerts.md).
+
+### Ręczny test od utworzenia reguły do odbioru alertu
+
+Z katalogu repozytorium uruchom `./scripts/test-alert-flow.sh`. Wymagane są Docker Compose, Bash, curl, jq i uuidgen oraz dostępne dla tego projektu porty z Compose. Skrypt korzysta z lokalnego `.env` lub ustawień demo z `.env.example`. Dystrybucja reguł musi być włączona.
+
+Skrypt buduje i uruchamia Control, Engine, PostgreSQL i Redis, tworzy zespół testowy i regułę przez HTTP. Czeka na zaindeksowanie reguły, po czym wysyła jedno pasujące zdarzenie. Sukces potwierdza wpis z procesu Control zawierający ten sam `ruleId`, ten sam `eventId` oraz nadany `alertId`. Skrypt kończy się błędem, jeśli potwierdzenie nie dotrze.
+
+Każdy przebieg tworzy regułę z unikalnym identyfikatorem testu i zostawia dane oraz usługi do inspekcji. Używaj lokalnej bazy demo. Dodatkowe logowanie diagnostyczne włącza plik Compose używany przez skrypt.

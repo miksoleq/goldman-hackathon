@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>rule-schema</module>
+        <module>contracts</module>
         <module>control</module>
         <module>engine</module>
     </modules>

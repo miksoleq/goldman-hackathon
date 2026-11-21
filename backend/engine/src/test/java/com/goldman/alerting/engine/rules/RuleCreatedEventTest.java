@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.goldman.alerting.contracts.RuleCreated;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -15,53 +16,58 @@ class RuleCreatedEventTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void parsesControlEnvelopeAndV1Definition() {
-        RuleCreatedEvent event = RuleCreatedEvent.fromJson(message("048f06df-7fb4-4432-8743-87af3277489f", true, "payment_failed"), objectMapper);
+    void parsesControlEnvelopeAndV1Definition() throws Exception {
+        RuleCreated event = parse(message("048f06df-7fb4-4432-8743-87af3277489f", true, "payment_failed"));
 
         assertEquals("048f06df-7fb4-4432-8743-87af3277489f", event.ruleId());
         assertTrue(event.enabled());
-        assertEquals("048f06df-7fb4-4432-8743-87af3277489f", event.toRuleDefinition().id());
+        assertEquals("048f06df-7fb4-4432-8743-87af3277489f", RuleDefinition.fromEvent(event).id());
         assertEquals("payment_failed", event.definition().path("match").path("value").asText());
     }
 
     @Test
-    void preservesDisabledStateForAdapterToIgnore() {
-        RuleCreatedEvent event = RuleCreatedEvent.fromJson(message("rule-disabled", false, "payment_failed"), objectMapper);
+    void preservesDisabledStateForAdapterToIgnore() throws Exception {
+        RuleCreated event = parse(message("rule-disabled", false, "payment_failed"));
 
         assertFalse(event.enabled());
     }
 
     @Test
     void rejectsMalformedJsonAndNonObjectPayloads() {
-        assertThrows(InvalidRuleDefinitionException.class,
-                () -> RuleCreatedEvent.fromJson("{", objectMapper));
-        assertThrows(InvalidRuleDefinitionException.class,
-                () -> RuleCreatedEvent.fromJson("[]", objectMapper));
+        assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class,
+                () -> parse("{"));
+        assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class,
+                () -> parse("[]"));
     }
 
     @Test
-    void rejectsMissingOrInvalidEnvelopeFields() {
+    void rejectsMissingOrInvalidEnvelopeFields() throws Exception {
         assertInvalid("{\"type\":\"rule.created\",\"enabled\":true,\"definition\":{}}", "rule id");
         assertInvalid("{\"type\":\"rule.created\",\"ruleId\":\"rule-1\",\"enabled\":\"true\",\"definition\":{}}", "enabled type");
         assertInvalid("{\"type\":\"rule.created\",\"ruleId\":\"rule-1\",\"enabled\":true,\"definition\":null}", "definition type");
         assertInvalid("{\"type\":\"rule.updated\",\"ruleId\":\"rule-1\",\"enabled\":true,\"definition\":{}}", "event type");
-        RuleCreatedEvent invalidVersion = RuleCreatedEvent.fromJson(
-                "{\"type\":\"rule.created\",\"ruleId\":\"rule-1\",\"enabled\":true,\"definition\":{\"v\":2}}", objectMapper);
-        assertThrows(InvalidRuleDefinitionException.class, invalidVersion::toRuleDefinition, "definition version");
+        RuleCreated invalidVersion = parse(
+                "{\"type\":\"rule.created\",\"ruleId\":\"rule-1\",\"enabled\":true,\"definition\":{\"v\":2}}");
+        assertThrows(InvalidRuleDefinitionException.class, () -> RuleDefinition.fromEvent(invalidVersion), "definition version");
     }
 
     @Test
     void doesNotExposeMutableDefinitionState() throws Exception {
         JsonNode definition = objectMapper.readTree("{\"v\":1,\"title\":\"T\",\"match\":{\"path\":\"payload.kind\",\"op\":\"eq\",\"value\":\"a\"}} ");
-        RuleCreatedEvent event = new RuleCreatedEvent("rule-1", 1, true, definition);
+        RuleCreated event = new RuleCreated(RuleCreated.TYPE, "rule-1", 1, 2, "rule", true, 100,
+                java.util.List.of(), java.util.List.of(), null, definition);
         ((ObjectNode) event.definition()).put("title", "mutated");
 
         assertEquals("T", event.definition().path("title").asText());
     }
 
+    private RuleCreated parse(String raw) throws com.fasterxml.jackson.core.JsonProcessingException {
+        return objectMapper.readValue(raw, RuleCreated.class);
+    }
+
     private void assertInvalid(String payload, String description) {
-        assertThrows(InvalidRuleDefinitionException.class,
-                () -> RuleCreatedEvent.fromJson(payload, objectMapper), description);
+        assertThrows(com.fasterxml.jackson.core.JsonProcessingException.class,
+                () -> parse(payload), description);
     }
 
     private String message(String id, boolean enabled, String kind) {

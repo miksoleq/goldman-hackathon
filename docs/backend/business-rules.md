@@ -38,6 +38,10 @@ A valid editor document creates the rule, user and team links, version 1, audit 
 - **Reason** - The first engine slice accepts messages from the three specified transports without constraining producer payloads.
 - **Verification** - Manual smoke flow is documented in the root `README.md`; automated ingest tests have not been added in this initial skeleton.
 
+### Durable alert reception
+
+Engine appends one JSON field `alert` per matched rule to stream `alerts.live`. Control reads the backlog, persists one inbox row per alert UUID, and acknowledges after commit. A duplicate delivery produces one stored row and one application event on successful synchronous processing. `LiveAlertSubscriptionIT` exercises backlog delivery and reclaim of a pending duplicate with PostgreSQL and Redis.
+
 ## Rule template
 
 Use one subsection per rule with a short, descriptive heading.

@@ -1,0 +1,7 @@
+services:
+  engine:
+    environment:
+      LOGGING_LEVEL_COM_GOLDMAN_ALERTING_ENGINE_INGEST_REDIS: DEBUG
+  control:
+    environment:
+      LOGGING_LEVEL_COM_GOLDMAN_ALERTING_CONTROL_ALERTS: DEBUG

@@ -1,7 +1,9 @@
 package com.goldman.alerting.engine.ingest.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.goldman.alerting.engine.rules.RuleCreatedEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.goldman.alerting.contracts.RuleCreated;
+import com.goldman.alerting.engine.rules.RuleDefinition;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,11 +57,12 @@ class RedisRuleCreatedAdapter implements MessageListener, SubscriptionListener {
 
     synchronized void accept(String json) {
         try {
-            var event = RuleCreatedEvent.fromJson(json, mapper);
+            var event = RuleCreated.fromTree(mapper.readTree(json));
             if (!event.enabled() || applied.getOrDefault(event.ruleId(), 0) >= event.version()) return;
-            index.accept(event.toRuleDefinition());
+            index.accept(RuleDefinition.fromEvent(event));
             applied.put(event.ruleId(), event.version());
-        } catch (IllegalArgumentException ex) {
+            log.debug("Indexed rule ruleId={} version={}", event.ruleId(), event.version());
+        } catch (IllegalArgumentException | JsonProcessingException ex) {
             log.warn("Skipping invalid rule creation on {}", channel);
         }
     }

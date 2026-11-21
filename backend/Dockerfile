@@ -1,7 +1,7 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY pom.xml ./pom.xml
-COPY rule-schema ./rule-schema
+COPY contracts ./contracts
 COPY control/pom.xml ./control/pom.xml
 COPY control/src ./control/src
 COPY engine/pom.xml ./engine/pom.xml

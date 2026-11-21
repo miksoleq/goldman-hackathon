@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>com.goldman.alerting</groupId>
-            <artifactId>rule-schema</artifactId>
+            <artifactId>contracts</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -127,7 +127,7 @@
                                 <database>
                                     <name>org.jooq.meta.postgres.PostgresDatabase</name>
                                     <inputSchema>public</inputSchema>
-                                    <includes>users|rule_users|teams|rules|runbooks|rule_teams|rule_versions|config_version|audit_log|rule_created_outbox</includes>
+                                    <includes>live_alert_inbox|users|rule_users|teams|rules|runbooks|rule_teams|rule_versions|config_version|audit_log|rule_created_outbox</includes>
                                 </database>
                                 <generate>
                                     <relations>false</relations>

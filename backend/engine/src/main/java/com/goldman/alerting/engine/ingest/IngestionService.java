@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.time.Instant;
 import java.util.ArrayList;
-import com.goldman.alerting.schema.LiveAlert;
+import com.goldman.alerting.contracts.LiveAlert;
 import com.goldman.alerting.engine.rules.Rule;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
 import org.springframework.beans.factory.annotation.Value;

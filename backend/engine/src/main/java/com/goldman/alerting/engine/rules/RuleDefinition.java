@@ -1,6 +1,8 @@
 package com.goldman.alerting.engine.rules;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.goldman.alerting.contracts.RuleCreated;
+import java.util.UUID;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
@@ -18,6 +20,19 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
             throw new InvalidRuleDefinitionException("Rule id must not be blank");
         }
         Objects.requireNonNull(condition, "condition");
+    }
+
+    public static RuleDefinition fromEvent(RuleCreated event) {
+        String id = event.ruleId();
+        try {
+            UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidRuleDefinitionException("Expected UUID ruleId");
+        }
+        var definition = event.definition();
+        var rule = RuleDefinition.fromV1(id, definition);
+        return new RuleDefinition(id, rule.condition(),
+                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition));
     }
 
     /**
