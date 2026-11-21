@@ -32,7 +32,7 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
         var definition = event.definition();
         var rule = RuleDefinition.fromV1(id, definition);
         return new RuleDefinition(id, rule.condition(),
-                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition));
+                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook()));
     }
 
     /**

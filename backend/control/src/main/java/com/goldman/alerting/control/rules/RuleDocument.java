@@ -14,7 +14,9 @@ import java.util.regex.Pattern;
 @Component
 class RuleDocument {
     record Draft(String name, boolean enabled, int priority, List<String> teams, List<String> users,
-                 String runbook, ObjectNode definition) {}
+                 String runbook, InlineBook inlineBook, ObjectNode definition) {}
+
+    record InlineBook(String format, String content) {}
 
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory())
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
@@ -52,7 +54,24 @@ class RuleDocument {
         var users = recipients(route, "users");
         require(!teams.isEmpty() || !users.isEmpty(), "Route requires at least one recipient");
         JsonNode runbook = def.remove("runbook");
-        String book = runbook == null ? "auto" : name(runbook, "runbook");
+        InlineBook inline = null;
+        String book;
+        if (runbook != null && runbook.isObject()) {
+            book = name(runbook.get("name"), "runbook.name");
+            require(!Set.of("auto", "none").contains(book), "Reserved runbook name");
+            String format = name(runbook.get("format"), "runbook.format");
+            String content = name(runbook.get("content"), "runbook.content");
+            require(runbook.size() == 3 && Set.of("markdown", "text", "url").contains(format), "Invalid runbook");
+            if (format.equals("url")) {
+                var uri = java.net.URI.create(content);
+                require(uri.getHost() != null && Set.of("http", "https").contains(uri.getScheme()), "Expected HTTP(S) URL");
+            } else {
+                checkTemplate(content);
+            }
+            inline = new InlineBook(format, content);
+        } else {
+            book = runbook == null ? "auto" : name(runbook, "runbook");
+        }
         require(!def.has("runbookMode"), "Use runbook in the YAML document");
         if (!def.has("v")) def.put("v", 1);
         def.put("runbookMode", book.equals("none") ? "none" : "auto");
@@ -67,7 +86,7 @@ class RuleDocument {
         if (!dedup.has("windowSec")) dedup.put("windowSec", 60);
         for (String field : List.of("severity", "title", "body")) checkTemplate(def.get(field).textValue());
         return new Draft(name, enabled == null || enabled.booleanValue(), priority == null ? 100 : priority.intValue(),
-                teams, users, Set.of("auto","none").contains(book) ? null : book, def);
+                teams, users, Set.of("auto","none").contains(book) ? null : book, inline, def);
     }
 
     private static List<String> recipients(JsonNode route, String key) {

@@ -12,12 +12,14 @@ class AlertSpecTest {
                 {"title":"{{rule.name}} w {{payload.service | lower}}",
                  "body":"Workflow {{payload.workflow}}: {{payload.reason | default: timeout}}",
                  "severity":"{{payload.level}}"}
-                """));
+                """), new com.goldman.alerting.contracts.Runbook(java.util.UUID.randomUUID(), "steps", "text",
+                "Check {{payload.workflow}}: {{payload.reason | default: timeout}}"));
         var event = mapper.readTree("""
                 {"payload":{"workflow":"WF-42","service":"PAYMENTS","level":"ERROR"}}
                 """);
         assertEquals("Timeout w payments", spec.title().apply(event));
         assertEquals("Workflow WF-42: timeout", spec.body().apply(event));
+        assertEquals("Check WF-42: timeout", spec.runbook().apply(event).content());
         assertEquals("high", spec.severity().apply(event));
     }
 }

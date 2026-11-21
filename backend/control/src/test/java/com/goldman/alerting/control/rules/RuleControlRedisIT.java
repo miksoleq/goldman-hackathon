@@ -48,6 +48,7 @@ class RuleControlRedisIT {
     private org.springframework.data.redis.core.StringRedisTemplate redis;
 
     private UUID teamId;
+    private String bookName;
     private String teamName;
     private String ruleName;
 
@@ -70,6 +71,10 @@ class RuleControlRedisIT {
                 db.deleteFrom(RULES).where(RULES.ID.eq(ruleId)).execute();
             }
         }
+        if (bookName != null) {
+            var books = com.goldman.alerting.control.db.Tables.RUNBOOKS;
+            db.deleteFrom(books).where(books.NAME.eq(bookName)).execute();
+        }
         if (teamId != null) {
             db.deleteFrom(TEAMS).where(TEAMS.ID.eq(teamId)).execute();
         }
@@ -77,6 +82,7 @@ class RuleControlRedisIT {
 
     @Test
     void createsRuleThroughHttpAndPublishesTheOutboxEnvelope() throws Exception {
+        bookName = "book-" + teamId;
         String yaml = """
                 name: %s
                 enabled: true
@@ -84,8 +90,8 @@ class RuleControlRedisIT {
                 match: {path: payload, op: jsonSchema, value: {type: object, required: [kind], properties: {kind: {type: string}}}}
                 title: Payment failed
                 route: {teams: [%s]}
-                runbook: auto
-                """.formatted(ruleName, teamName);
+                runbook: {name: "%s", format: text, content: "Check {{payload.kind}}"}
+                """.formatted(ruleName, teamName, bookName);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
 
@@ -102,6 +108,13 @@ class RuleControlRedisIT {
         String raw = redis.<String, String>opsForHash().get(CHANNEL + ":snapshot", ruleId);
         JsonNode event = new com.fasterxml.jackson.databind.ObjectMapper().readTree(raw);
         redis.opsForHash().delete(CHANNEL + ":snapshot", ruleId);
+        assertThat(event.at("/runbook/content").asText()).isEqualTo("Check {{payload.kind}}");
+        assertThat(event.at("/runbook/id")).isEqualTo(event.path("runbookId"));
+        var conflict = http.postForEntity("/api/rules",
+                new HttpEntity<>(yaml.replace(bookName, "orphan-" + teamId), headers), JsonNode.class);
+        assertThat(conflict.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        var books = com.goldman.alerting.control.db.Tables.RUNBOOKS;
+        assertThat(db.fetchExists(books, books.NAME.eq("orphan-" + teamId))).isFalse();
         assertThat(event.path("type").asText()).isEqualTo("rule.created");
         assertThat(event.path("ruleId").asText()).isEqualTo(ruleId);
         assertThat(event.path("enabled").asBoolean()).isTrue();
