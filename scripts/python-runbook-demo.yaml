@@ -1,0 +1,35 @@
+# Wyślij do POST /api/apply po zalogowaniu.
+# Przykładowe zdarzenie do POST /ingest:
+# {"demo":"python-runbook","service":"payments","requestId":"TEST-001"}
+kind: Rule
+name: Demo diagnostyki płatności
+spec:
+  title: "Test Python: {{payload.service}} / {{payload.requestId}}"
+  match:
+    path: payload.demo
+    op: eq
+    value: python-runbook
+  route:
+    teams: [demo-operations]
+  dedup:
+    keys: [payload.requestId]
+    windowSec: 60
+  runbook:
+    name: Diagnostyka płatności z Pythonem
+    format: text
+    content: Sprawdź wynik health checku i zatwierdź skrypt diagnostyczny.
+    steps:
+      - action: http_get
+      - action: python
+        approval: required
+        code: |
+          def run(ctx):
+              event = ctx["event"]["payload"]
+              status = ctx["previousStepResult"]["status"]
+              print(f"{event['requestId']} — runner {status}")
+              return {
+                  "service": event["service"],
+                  "requestId": event["requestId"],
+                  "runnerHealthy": status == "UP",
+                  "alertTitle": ctx["alert"]["title"]
+              }
