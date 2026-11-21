@@ -81,6 +81,43 @@ class RuleControlRedisIT {
     }
 
     @Test
+    void editsYamlWithVersionCheckAndPublishesTheNewSnapshot() throws Exception {
+        bookName = "book-" + teamId;
+        String original = """
+                name: %s
+                match: {path: payload, op: exists}
+                title: Original
+                route: {teams: [%s]}
+                runbook: {name: "%s", format: text, content: "Check {{payload.kind}}"}
+                """.formatted(ruleName, teamName, bookName);
+        var headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/yaml"));
+        var created = http.postForEntity("/api/rules", new HttpEntity<>(original, headers), JsonNode.class);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        var id = created.getBody().path("id").textValue();
+        String url = "/api/rules/" + id;
+        headers.setIfMatch("\"1\"");
+        String updated = "# retain this comment\n" + original.replace("title: Original", "title: '{{rule.name}}'");
+        var put = org.springframework.http.HttpMethod.PUT;
+        assertThat(http.exchange(url, put, new HttpEntity<>(updated.replace("rule.name", "payload | typo"), headers),
+                JsonNode.class).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        var saved = http.exchange(url, put, new HttpEntity<>(updated, headers), JsonNode.class);
+        assertThat(saved.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(saved.getBody().path("version").asInt()).isEqualTo(2);
+        assertThat(http.exchange(url, put, new HttpEntity<>(original, headers), JsonNode.class).getStatusCode())
+                .isEqualTo(HttpStatus.PRECONDITION_FAILED);
+        assertThat(db.select(RULES.SOURCE_YAML).from(RULES).where(RULES.ID.eq(UUID.fromString(id)))
+                .fetchSingle(RULES.SOURCE_YAML)).isEqualTo(updated);
+        publisher.publish();
+        try {
+            String snapshot = redis.<String, String>opsForHash().get(CHANNEL + ":snapshot", id);
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(snapshot).path("version").asInt()).isEqualTo(2);
+        } finally {
+            redis.opsForHash().delete(CHANNEL + ":snapshot", id);
+        }
+    }
+
+    @Test
     void createsRuleThroughHttpAndPublishesTheOutboxEnvelope() throws Exception {
         bookName = "book-" + teamId;
         String yaml = """

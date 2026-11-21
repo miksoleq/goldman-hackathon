@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRule, fetchFeed } from "./api.js";
+import { createRule, fetchFeed, saveRuleYaml } from "./api.js";
 
 test("loads monitor feeds and validates their shape", async () => {
   let requested;
@@ -27,4 +27,16 @@ test("posts a rule as JSON and surfaces duplicate and validation errors", async 
   assert.deepEqual(result, { id: "id-1" });
   await assert.rejects(createRule({}, async () => ({ ok: false, status: 409, json: async () => ({}) })), /already exists/);
   await assert.rejects(createRule({}, async () => ({ ok: false, status: 400, json: async () => ({ message: "Bad field" }) })), /Bad field/);
+});
+
+test("sends the original YAML and protects edits with the loaded version", async () => {
+  const source = "# original formatting\nname: Trade\n";
+  await saveRuleYaml(source, { id: "rule", version: 3 }, async (url, options) => {
+    assert.equal(url, "/api/rules/rule");
+    assert.equal(options.method, "PUT");
+    assert.equal(options.headers["If-Match"], '"3"');
+    assert.equal(options.headers["Content-Type"], "application/yaml");
+    assert.equal(options.body, source);
+    return { ok: true, json: async () => ({ version: 4 }) };
+  });
 });

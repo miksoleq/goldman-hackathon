@@ -4,7 +4,7 @@ async page => {
   await page.getByLabel("Rule name").fill("Browser test");
   const type = page.getByRole("combobox", { name: "Field type" }).first();
   const operator = page.getByRole("combobox", { name: "Condition", exact: true }).first();
-  if (await operator.locator("option[value=gt]").count()) throw new Error("Numeric operator available for strings");
+  if (!(await operator.locator("option[value=gt]").count())) throw new Error("Numeric comparison missing for numeric strings");
   await type.selectOption("number");
   await operator.selectOption("gt");
   await page.getByLabel("Field name").first().fill("amount");
@@ -14,7 +14,8 @@ async page => {
   await page.getByLabel("Field name").last().fill("status");
   await page.getByLabel("Value", { exact: true }).last().fill("failed");
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByLabel("Teams").fill("Demo");
+  await page.getByLabel("Teams").fill("payments");
+  await page.getByRole("option", { name: "payments", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   let sent;
   await page.route("**/api/rules", async route => {

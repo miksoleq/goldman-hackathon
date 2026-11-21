@@ -176,3 +176,5 @@ td small { max-width: 500px; margin-top: 4px; color: var(--muted); overflow: hid
   .group-toolbar label { width: 100%; justify-content: space-between; margin: 0; }.group-toolbar select { min-width: 0; }.condition-group { padding: 9px; }
   .environment { display: none; }
 }
+
+.yaml-editor textarea { width: 100%; font-family: ui-monospace, monospace; resize: vertical; }

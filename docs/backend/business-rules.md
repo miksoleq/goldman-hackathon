@@ -73,3 +73,7 @@ Use one subsection per rule with a short, descriptive heading.
 ### Attached runbook instructions
 
 Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+
+### Rule revisions
+
+Updating a rule requires its current version in a quoted `If-Match` header. A successful save replaces the rule and recipients, advances its version, and records history, audit and publication in one transaction. A stale version returns HTTP 412. The original document is available from the monitor feed, including comments. `RuleControlRedisIT` verifies persistence, conflict handling and publication.

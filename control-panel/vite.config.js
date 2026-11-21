@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      "/api/engine/snapshot": "http://localhost:8081",
+      "/api/engine/snapshot": process.env.ENGINE_URL || "http://localhost:8081",
       "/api": {
-        target: "http://localhost:8082",
+        target: process.env.CONTROL_URL || "http://localhost:8082",
         changeOrigin: true
       }
     }
