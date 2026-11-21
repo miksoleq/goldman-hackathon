@@ -26,16 +26,14 @@ export function createGroup() {
 }
 
 export function operatorsForType(type) {
-  const allowed = {
-    string: ["exists","eq","ne","in","nin","contains","startsWith","endsWith","regex","jsonSchema"],
-    number: ["exists","eq","ne","in","nin","gt","gte","lt","lte","jsonSchema"],
-    integer: ["exists","eq","ne","in","nin","gt","gte","lt","lte","jsonSchema"],
-    boolean: ["exists","eq","ne","in","nin","jsonSchema"],
-    null: ["exists","eq","ne","jsonSchema"],
-    object: ["exists","jsonSchema"],
-    array: ["exists","jsonSchema"]
-  };
-  return OPERATORS.filter(([op]) => (allowed[type] || allowed.string).includes(op));
+  const equality = ["exists","eq","ne","in","nin","jsonSchema"];
+  const numeric = ["gt","gte","lt","lte"];
+  const text = ["contains","startsWith","endsWith","regex"];
+  const allowed = [...equality];
+  if (["number","integer","string"].includes(type)) allowed.push(...numeric);
+  if (["number","integer","string","boolean"].includes(type)) allowed.push(...text);
+  if (type === "array") allowed.push("contains");
+  return OPERATORS.filter(([op]) => allowed.includes(op));
 }
 
 export function schemaFromExample(value) {
@@ -59,6 +57,8 @@ function valueOf(condition) {
   if (condition.op === "exists") return condition.value !== "false";
   if (condition.op === "jsonSchema") return condition.schema;
   if (["gt","gte","lt","lte"].includes(condition.op)) return Number(condition.value);
+  if ((condition.op === "contains" && condition.valueType !== "array") || ["startsWith","endsWith","regex"].includes(condition.op)) return condition.value;
+  if (["object","array"].includes(condition.valueType)) return JSON.parse(condition.value);
   if (condition.op === "in" || condition.op === "nin") {
     return condition.value.split(",").map(value => value.trim()).filter(Boolean)
       .map(value => castValue(value, condition.valueType));
@@ -68,7 +68,7 @@ function valueOf(condition) {
 
 function castValue(value, type) {
   if (type === "number") return Number(value);
-  if (type === "integer") return Number.parseInt(value, 10);
+  if (type === "integer") return Number(value);
   if (type === "boolean") return value !== "false";
   if (type === "null") return null;
   return value;
@@ -154,9 +154,19 @@ function validateNode(node, depth = 1, exceedsCount = () => false) {
   if (!/^(payload|meta)(\.[^.\[\]'\s]+|\[([0-9]+|\*)\]|\['[^']+'\])*$/.test(path) || path.length > 300) return "Enter a valid field name.";
   if (node.op === "regex" && !node.value.trim()) return "Enter a regular expression.";
   if (node.op === "regex" && node.value.length > 500) return "Regular expressions can contain up to 500 characters.";
+  if (["object", "array"].includes(node.valueType) && !["exists", "jsonSchema"].includes(node.op)) {
+    let value;
+    try { value = JSON.parse(node.value); } catch { return "Enter the comparison value as valid JSON."; }
+    if (["in","nin"].includes(node.op) && (!Array.isArray(value) || !value.length || value.length > 1000)) {
+      return "Enter a JSON array of 1 to 1,000 comparison values.";
+    }
+    return null;
+  }
   if (node.op === "in" || node.op === "nin") {
-    const values = node.value.split(",").filter(value => value.trim());
+    const values = node.value.split(",").map(value => value.trim()).filter(Boolean);
     if (!values.length) return "Enter at least one list value.";
+    if (node.valueType === "boolean" && values.some(value => value !== "true" && value !== "false")) return "Enter true or false for each list value.";
+    if (node.valueType === "null" && values.some(value => value !== "null")) return "Enter null as the list value.";
     if (values.length > 1000) return "Lists can contain up to 1,000 values.";
   } else if (node.op !== "exists" && node.op !== "jsonSchema" && node.valueType !== "null" && node.valueType !== "boolean" && !node.value.trim()) {
     return "Enter a comparison value for each condition.";
@@ -165,7 +175,7 @@ function validateNode(node, depth = 1, exceedsCount = () => false) {
     try { schemaFromExample(JSON.parse(node.example)); } catch (error) { return "Enter valid example JSON. " + (error instanceof SyntaxError ? "" : error.message); }
     return null;
   }
-  if ((["number", "integer"].includes(node.valueType) || ["gt","gte","lt","lte"].includes(node.op)) && node.op !== "exists") {
+  if ((["number", "integer"].includes(node.valueType) || ["gt","gte","lt","lte"].includes(node.op)) && !["exists","regex","startsWith","endsWith","contains"].includes(node.op)) {
     const values = node.op === "in" || node.op === "nin" ? node.value.split(",") : [node.value];
     if (values.some(value => value.trim() === "" || !Number.isFinite(Number(value)) || (node.valueType === "integer" && !Number.isInteger(Number(value))))) return "Enter valid numeric values.";
   }

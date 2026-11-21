@@ -1,7 +1,10 @@
 package com.goldman.alerting.engine.ingest;
 
+import com.github.f4b6a3.ulid.UlidCreator;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -10,6 +13,8 @@ import java.util.ArrayList;
 import com.goldman.alerting.contracts.LiveAlert;
 import com.goldman.alerting.engine.rules.Rule;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
+import com.goldman.alerting.engine.rules.RunbookCatalog;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,19 +22,30 @@ import org.springframework.stereotype.Service;
 public class IngestionService {
 
     private final ObjectMapper objectMapper;
+    private final ObjectReader jsonReader;
     private final IngestPublisher publisher;
     private final int maxPayloadBytes;
     private final RuleIndexManager rules;
 
+    private final RunbookCatalog runbooks;
+
+    public IngestionService(ObjectMapper mapper, IngestPublisher publisher, RuleIndexManager rules, int maxPayloadBytes) {
+        this(mapper, publisher, rules, new RunbookCatalog(), maxPayloadBytes);
+    }
+
+    @Autowired
     public IngestionService(
             ObjectMapper objectMapper,
             IngestPublisher publisher,
             RuleIndexManager rules,
+            RunbookCatalog runbooks,
             @Value("${ingest.max-payload-bytes:1048576}") int maxPayloadBytes
     ) {
         this.objectMapper = objectMapper;
+        this.jsonReader = objectMapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         this.publisher = publisher;
         this.rules = rules;
+        this.runbooks = runbooks;
         if (maxPayloadBytes < 1) {
             throw new IllegalArgumentException("ingest.max-payload-bytes must be positive");
         }
@@ -40,12 +56,10 @@ public class IngestionService {
         if (rawJson == null) {
             throw new InvalidJsonException();
         }
-        if (rawJson.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
-            throw new PayloadTooLargeException(maxPayloadBytes);
-        }
+        checkSize(rawJson);
         try {
-            JsonNode payload = objectMapper.readTree(rawJson);
-            if (payload == null) {
+            JsonNode payload = jsonReader.readTree(rawJson);
+            if (payload == null || payload.isMissingNode()) {
                 throw new InvalidJsonException();
             }
             return accept(source, adapter, payload);
@@ -55,19 +69,34 @@ public class IngestionService {
     }
 
     public MessageEnvelope accept(String source, String adapter, JsonNode payload) {
-        String eventId = UUID.randomUUID().toString();
+        return publish(source, adapter, "json", payload);
+    }
+
+    public MessageEnvelope acceptText(String source, String adapter, String message) {
+        checkSize(message);
+        return publish(source, adapter, "text", objectMapper.createObjectNode().put("message", message));
+    }
+
+    private void checkSize(String input) {
+        if (input.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
+            throw new PayloadTooLargeException(maxPayloadBytes);
+        }
+    }
+
+    private MessageEnvelope publish(String source, String adapter, String contentType, JsonNode payload) {
         long receivedAt = System.currentTimeMillis();
+        String eventId = UlidCreator.getUlid(receivedAt).toString();
         var event = objectMapper.createObjectNode();
         event.set("payload", payload);
         event.putObject("meta").put("source", source).put("adapter", adapter)
-                .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", "json");
+                .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", contentType);
         var matches = rules.match(event);
         var alerts = new ArrayList<IngestPublisher.MatchedAlert>();
         for (Rule rule : matches) {
             var spec = rule.alert();
             if (spec == null) continue;
-            var book = spec.runbook().apply(event);
-            var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.fromString(eventId),
+            var book = runbooks.select(rule, event);
+            var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), eventId,
                     UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
                     spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),
                     book == null ? LiveAlert.UNASSIGNED_RUNBOOK : book.id(), book,
@@ -80,7 +109,7 @@ public class IngestionService {
                 source,
                 adapter,
                 receivedAt,
-                "json",
+                contentType,
                 payload,
                 matches.stream().map(Rule::id).toList()
         );

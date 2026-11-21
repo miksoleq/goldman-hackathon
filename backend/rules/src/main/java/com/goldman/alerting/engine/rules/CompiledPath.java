@@ -33,7 +33,7 @@ public final class CompiledPath {
         if (path == null || path.isEmpty()) {
             throw new InvalidRuleDefinitionException("Rule path must not be empty");
         }
-        if (path.length() > 300) {
+        if (path.codePointCount(0, path.length()) > 300) {
             throw new InvalidRuleDefinitionException("Rule path exceeds 300 characters");
         }
 
@@ -209,10 +209,8 @@ public final class CompiledPath {
                 throw invalidPath(path);
             }
             int numericDigit = digit - '0';
-            if (index > (Integer.MAX_VALUE - numericDigit) / 10) {
-                throw invalidPath(path);
-            }
-            index = index * 10 + numericDigit;
+            // Every Java array index is smaller than MAX_VALUE. Saturate oversized indices.
+            index = (int) Math.min(Integer.MAX_VALUE, (long) index * 10 + numericDigit);
             digitCount++;
             cursor++;
         }

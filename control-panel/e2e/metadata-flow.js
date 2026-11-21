@@ -1,5 +1,12 @@
 async page => {
   await page.reload();
+  const login = page.getByRole("button", { name: "Log in", exact: true });
+  await page.getByRole("button", { name: /^(Log in|Log out)$/ }).first().waitFor();
+  if (await login.isVisible()) {
+    await login.click();
+    await page.getByRole("button", { name: "Demo Member" }).click();
+    await page.getByText("demo.member", { exact: true }).waitFor();
+  }
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Look in").selectOption("meta");
   if (await page.getByLabel("Field type").count()) throw new Error("Metadata type selector is visible");

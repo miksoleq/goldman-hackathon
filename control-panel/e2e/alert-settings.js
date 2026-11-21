@@ -2,6 +2,13 @@ async page => {
   await page.route("**/api/teams", route => route.fulfill({ json: [{ name: "Market Risk" }, ...Array.from({ length: 12 }, (_, index) => ({ name: "Market " + index })), { name: "Operations" }] }));
   await page.route("**/api/users", route => route.fulfill({ json: [{ username: "analyst" }] }));
   await page.reload();
+  const login = page.getByRole("button", { name: "Log in", exact: true });
+  await page.getByRole("button", { name: /^(Log in|Log out)$/ }).first().waitFor();
+  if (await login.isVisible()) {
+    await login.click();
+    await page.getByRole("button", { name: "Demo Member" }).click();
+    await page.getByText("demo.member", { exact: true }).waitFor();
+  }
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Rule name").fill("Alert test");
   await page.getByLabel("Field name").fill("service");

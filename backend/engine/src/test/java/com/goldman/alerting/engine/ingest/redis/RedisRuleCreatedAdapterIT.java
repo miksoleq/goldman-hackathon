@@ -89,6 +89,9 @@ class RedisRuleCreatedAdapterIT {
             assertEquals(1, wire.path("v").intValue());
             assertEquals(1, wire.path("count").intValue());
             assertEquals(accepted.eventId(), wire.path("eventId").asText());
+            assertEquals(accepted.receivedAt(), com.github.f4b6a3.ulid.Ulid.from(accepted.eventId()).getTime());
+            var storedEvent = alerts.range(stream, org.springframework.data.domain.Range.unbounded()).getFirst();
+            assertEquals(accepted.eventId(), objectMapper.readTree(storedEvent.getValue().get("event")).required("eventId").asText());
             assertEquals(id, wire.path("ruleId").asText());
             assertEquals("54989321-a1a2-4370-bc28-634ebd96ec50", wire.at("/userIds/0").asText());
             assertTrue(wire.path("teamIds").isEmpty());

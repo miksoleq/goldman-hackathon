@@ -1,0 +1,40 @@
+package com.goldman.alerting.engine.ingest;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.goldman.alerting.engine.ingest.kafka.KafkaExternalAdapter;
+import com.goldman.alerting.engine.rules.RuleIndexManager;
+import java.util.ArrayList;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+
+class IngestionServiceTest {
+    private final ArrayList<MessageEnvelope> events = new ArrayList<>();
+    private final IngestionService service = new IngestionService(new ObjectMapper(),
+            (event, alerts) -> events.add(event), mock(RuleIndexManager.class), 6);
+
+    @Test void textIsVerbatimAndLimitedByUtf8Bytes() {
+        var event = service.acceptText("worker", "http", " ż12 ");
+        assertEquals("text", event.contentType());
+        assertEquals(" ż12 ", event.payload().required("message").textValue());
+        assertThrows(PayloadTooLargeException.class, () -> service.acceptText("worker", "http", " ż123 "));
+        assertEquals(1, events.size());
+    }
+
+    @Test void kafkaKeepsTopicAndJsonContentTypeIncludingForJsonStrings() {
+        new KafkaExternalAdapter(service).onMessage(new ConsumerRecord<>("orders", 0, 12, null, "\"hi\""));
+        var event = events.getFirst();
+        assertEquals("orders", event.source());
+        assertEquals("kafka", event.adapter());
+        assertEquals("json", event.contentType());
+        assertEquals("hi", event.payload().textValue());
+    }
+
+    @Test void incompleteOrMultipleJsonValuesAreRejected() {
+        for (String input : new String[]{"{", " ", "1 2", "{}!"}) {
+            assertThrows(InvalidJsonException.class, () -> service.accept("orders", "http", input));
+        }
+        assertTrue(events.isEmpty());
+    }
+}

@@ -8,8 +8,9 @@ export default defineConfig({
     fs: { allow: [".", "../web-shared"] },
     port: 5174,
     proxy: {
+      "/api/engine/snapshot": process.env.ENGINE_URL || "http://localhost:8081",
       "/api": {
-        target: "http://localhost:8082",
+        target: process.env.CONTROL_URL || "http://localhost:8082",
         changeOrigin: true
       }
     }

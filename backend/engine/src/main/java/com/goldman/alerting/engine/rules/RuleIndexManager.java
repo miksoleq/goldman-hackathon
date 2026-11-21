@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Transport-independent entry point for replacing or extending the active rule snapshot. */
 public final class RuleIndexManager {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RuleIndexManager.class);
+    private final java.util.concurrent.ConcurrentMap<String, Long> lastWarning = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicReference<RuleIndex> current;
 
     public RuleIndexManager(List<RuleDefinition> initialRules) {
@@ -37,13 +39,26 @@ public final class RuleIndexManager {
 
     public void remove(String id) {
         current.updateAndGet(previous -> previous.withoutRule(id));
+        lastWarning.remove(id);
     }
 
     public RuleIndex.MatchResult matchWithDiagnostics(JsonNode event) {
-        return current.get().matchWithDiagnostics(event);
+        var result = current.get().matchWithDiagnostics(event);
+        for (String id : result.evaluationErrorRuleIds()) {
+            io.micrometer.core.instrument.Metrics.counter("rules.eval.errors", "rule", id).increment();
+            long now = System.nanoTime();
+            lastWarning.compute(id, (key, last) -> {
+                if (last == null || now - last >= java.time.Duration.ofMinutes(1).toNanos()) {
+                    log.warn("Could not evaluate rule ruleId={}", id);
+                    return now;
+                }
+                return last;
+            });
+        }
+        return result;
     }
 
     public List<Rule> match(JsonNode event) {
-        return current.get().match(event);
+        return matchWithDiagnostics(event).matchedRules();
     }
 }

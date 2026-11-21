@@ -20,6 +20,16 @@ class RuleIndexTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void compilesStandaloneMatchForRunbookSelection() throws Exception {
+        var matches = RuleIndex.compileMatch(json("""
+                {"all":[{"path":"meta.source","op":"eq","value":"orders"},
+                        {"path":"payload.price","op":"gt","value":10}]}
+                """));
+        assertTrue(matches.test(json("{\"meta\":{\"source\":\"orders\"},\"payload\":{\"price\":12}}")));
+        assertFalse(matches.test(json("{\"payload\":{\"price\":12}}")));
+    }
+
+    @Test
     void ordersAllMatchesBeforeStoppingAtTheFirstMatchingStopRule() throws Exception {
         var match = Condition.exists("payload");
         var late = new RuleDefinition("1", match, null, "A", 20, false, Deduplication.DEFAULT);

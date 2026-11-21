@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,8 +32,8 @@ public class HttpIngestController {
         this.maxBodyBytes = maxBodyBytes;
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<IngestAccepted> accept(HttpServletRequest request) {
+    @PostMapping(path = {"", "/{source}"}, consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE})
+    public ResponseEntity<IngestAccepted> accept(HttpServletRequest request, @PathVariable(name = "source", required = false) String source) {
         byte[] requestBody;
         try {
             int readLimit = maxBodyBytes == Integer.MAX_VALUE ? maxBodyBytes : maxBodyBytes + 1;
@@ -41,17 +42,18 @@ public class HttpIngestController {
             throw new InvalidHttpIngestException("Could not read request body");
         }
         if (requestBody.length == 0) {
-            throw new InvalidHttpIngestException("Request body must contain JSON");
+            throw new InvalidHttpIngestException("Request body must not be empty");
         }
         if (requestBody.length > maxBodyBytes) {
             throw new PayloadTooLargeException(maxBodyBytes);
         }
 
-        MessageEnvelope envelope = ingestionService.accept(
-                null,
-                "http",
-                new String(requestBody, StandardCharsets.UTF_8)
-        );
+        String origin = source == null ? "http" : source;
+        String body = new String(requestBody, StandardCharsets.UTF_8);
+        MediaType mediaType = MediaType.parseMediaType(request.getContentType());
+        MessageEnvelope envelope = MediaType.TEXT_PLAIN.isCompatibleWith(mediaType)
+                ? ingestionService.acceptText(origin, "http", body)
+                : ingestionService.accept(origin, "http", body);
         return ResponseEntity.accepted().body(new IngestAccepted(envelope.eventId()));
     }
 

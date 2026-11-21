@@ -32,9 +32,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
 ingest:
+  file:
+    enabled: ${INGEST_FILE_ENABLED:false}
+    path: ${INGEST_FILE_PATH:}
+    poll-interval-ms: ${INGEST_FILE_POLL_INTERVAL_MS:250}
   max-payload-bytes: ${INGEST_MAX_PAYLOAD_BYTES:1048576}
   redis:
     enabled: ${INGEST_REDIS_ENABLED:true}

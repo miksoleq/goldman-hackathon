@@ -202,6 +202,11 @@ public final class RuleIndex {
         return new Rule(ordinal, definition, compilePredicate(definition.condition()));
     }
 
+    /** Compiles a standalone match tree against the same {meta, payload} envelope as a rule. */
+    public static Predicate<JsonNode> compileMatch(JsonNode match) {
+        return compilePredicate(ConditionParser.parse(match));
+    }
+
     private static Predicate<JsonNode> compilePredicate(Condition condition) {
         if (condition instanceof Condition.All all) {
             List<Predicate<JsonNode>> children = compileChildren(all.conditions());

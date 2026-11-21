@@ -25,7 +25,12 @@ class RedisRuleCreatedAdapter implements MessageListener, SubscriptionListener {
     private final StringRedisTemplate redis;
     private final String channel;
     private final AtomicBoolean restoreNeeded = new AtomicBoolean(true);
-    private final Map<String, Integer> applied = new HashMap<>();
+    record Status(String ruleId, int version, String state, String reason) {}
+    private final Map<String, Status> statuses = new HashMap<>();
+
+    synchronized java.util.List<Status> statuses() {
+        return statuses.values().stream().sorted(java.util.Comparator.comparing(Status::ruleId)).toList();
+    }
 
     RedisRuleCreatedAdapter(ObjectMapper mapper, RuleIndexManager index, StringRedisTemplate redis, String channel) {
         this.mapper = mapper;
@@ -56,19 +61,36 @@ class RedisRuleCreatedAdapter implements MessageListener, SubscriptionListener {
     }
 
     synchronized void accept(String json) {
+        String id = null;
+        int version = 0;
         try {
-            var event = RuleCreated.fromTree(mapper.readTree(json));
-            if (applied.getOrDefault(event.ruleId(), 0) >= event.version()) return;
+            var node = mapper.readTree(json);
+            if (node == null) throw new IllegalArgumentException("Missing rule envelope");
+            id = node.path("ruleId").asText();
+            java.util.UUID.fromString(id);
+            var versionNode = node.path("version");
+            if (!versionNode.isMissingNode() && (!versionNode.isIntegralNumber() || !versionNode.canConvertToInt())) {
+                throw new IllegalArgumentException("Invalid rule version");
+            }
+            version = versionNode.asInt(1);
+            if (version < 1) throw new IllegalArgumentException("Invalid rule version");
+            var previous = statuses.get(id);
+            if (previous != null && previous.version() >= version) return;
+            var event = RuleCreated.fromTree(node);
             if (event.enabled()) {
                 index.accept(RuleDefinition.fromEvent(event));
-                log.debug("Indexed rule ruleId={} version={}", event.ruleId(), event.version());
+                log.debug("Indexed rule ruleId={} version={}", id, version);
             } else {
-                index.remove(event.ruleId());
-                log.debug("Disabled rule ruleId={} version={}", event.ruleId(), event.version());
+                index.remove(id);
             }
-            applied.put(event.ruleId(), event.version());
+            statuses.put(id, new Status(id, version, event.enabled() ? "active" : "disabled", null));
         } catch (IllegalArgumentException | JsonProcessingException ex) {
-            log.warn("Skipping invalid rule creation on {}", channel);
+            io.micrometer.core.instrument.Metrics.counter("rules.compile.errors").increment();
+            if (id != null && version > 0) {
+                index.remove(id);
+                statuses.put(id, new Status(id, version, "skipped", ex.getMessage()));
+            }
+            log.warn("Skipping invalid rule on {} ruleId={} version={}: {}", channel, id, version, ex.getMessage());
         }
     }
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { conditionSummary, createGroup, createLeaf, operatorsForType, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
 import { createRule } from "./api.js";
+import YamlRuleEditor from "./YamlRuleEditor.jsx";
 import AlertSettings from "./AlertSettings.jsx";
 
 const INITIAL_DRAFT = () => ({
@@ -93,8 +94,8 @@ function ConditionEditor({ node, onChange, onRemove, level = 0 }) {
         <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />
       </label>}
       {(valueKind === "typed" || valueKind === "list") && <>
-        <label>{node.op === "in" || node.op === "nin" ? "Values, comma separated" : "Value"}
-        {node.valueType === "boolean" && valueKind !== "list" ? <select value={node.value || "true"} onChange={event => onChange({ ...node, value: event.target.value })}><option>true</option><option>false</option></select> : node.valueType === "null" ? <span>null</span> : <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />}
+        <label>{["object","array"].includes(node.valueType) ? "Comparison value (JSON)" : valueKind === "list" ? "Values, comma separated" : "Value"}
+        {node.valueType === "boolean" && valueKind !== "list" && node.op !== "contains" ? <select value={node.value || "true"} onChange={event => onChange({ ...node, value: event.target.value })}><option>true</option><option>false</option></select> : node.valueType === "null" && valueKind !== "list" ? <span>null</span> : <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />}
       </label></>}
       {valueKind === "regex" && <label>RE2 pattern
         <input required maxLength="500" value={node.value} placeholder="^TRD-[0-9]+$"
@@ -115,6 +116,7 @@ function ConditionEditor({ node, onChange, onRemove, level = 0 }) {
 }
 
 export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
+  const [yaml, setYaml] = useState(false);
   const [draft, setDraft] = useState(INITIAL_DRAFT);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -134,8 +136,7 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
     if (step === 1) { const problem = validateDraft(draft); if (problem) { setError(problem); return; } setStep(2); return; }
     setSaving(true);
     try {
-      await createRule(toRulePayload(draft));
-      onCreated();
+      onCreated(await createRule(toRulePayload(draft)));
     } catch (cause) {
       setError(cause.message || "Could not reach Control. Check the connection and try again.");
     } finally {
@@ -143,6 +144,7 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
     }
   }
 
+  if (yaml) return <YamlRuleEditor onCancel={() => setYaml(false)} onSaved={onCreated} />;
   return <form className="rule-builder" onSubmit={submit} noValidate>
     <div className="builder-top">
       <div><p className="eyebrow">RULE CREATION · STEP {step + 1} OF 3</p>
@@ -150,6 +152,7 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
       <button className="text-button" type="button" onClick={onCancel}>Cancel</button>
     </div>
     {step === 0 && <>
+      <button className="secondary-button" type="button" onClick={() => setYaml(true)}>Write YAML</button>
       <label>Rule name<input required maxLength="200" value={draft.name} onChange={event => update({ name: event.target.value })} /></label>
       <ConditionEditor node={draft.match} onChange={match => update({ match })} />
       <p className="form-hint">Event data comes from the submitted JSON. Ingestion metadata is added by Engine and includes source, adapter, event ID, receive time, and content type.</p>
