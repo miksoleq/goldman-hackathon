@@ -30,7 +30,7 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert, St
         var definition = event.definition();
         var rule = parseDefinition(id, definition);
         return new RuleDefinition(id, rule.condition(),
-                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook()),
+                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook(), event.runbookId()),
                 event.name(), event.priority(), rule.stopProcessing(), rule.dedup());
     }
 

@@ -7,13 +7,13 @@ import java.util.function.Function;
 
 /** Alert routing and rendering belong to the same snapshot as the predicate. */
 public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,String> title,
-                        Function<JsonNode,String> body, Function<JsonNode,String> severity, Function<JsonNode,Runbook> runbook) {
+                        Function<JsonNode,String> body, Function<JsonNode,String> severity, Function<JsonNode,Runbook> runbook, boolean autoRunbook) {
     public AlertSpec {
         teams = List.copyOf(teams);
         users = List.copyOf(users);
     }
 
-    static AlertSpec compile(String id, String name, List<UUID> teams, List<UUID> users, JsonNode definition, Runbook book) {
+    static AlertSpec compile(String id, String name, List<UUID> teams, List<UUID> users, JsonNode definition, Runbook book, UUID pinnedId) {
         Function<JsonNode,Runbook> render = event -> null;
         if (book != null) {
             var content = "url".equals(book.format()) ? (Function<JsonNode,String>) event -> book.content()
@@ -22,7 +22,8 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         }
         return new AlertSpec(teams, users, RuleTemplate.compile(definition.path("title").asText(), id, name),
                 RuleTemplate.compile(definition.path("body").asText(""), id, name),
-                RuleTemplate.compile(definition.path("severity").asText("medium"), id, name).andThen(value -> level(value, id)), render);
+                RuleTemplate.compile(definition.path("severity").asText("medium"), id, name).andThen(value -> level(value, id)), render,
+                pinnedId == null && book == null && "auto".equals(definition.path("runbookMode").asText("auto")));
     }
 
     private static String level(String value, String ruleId) {

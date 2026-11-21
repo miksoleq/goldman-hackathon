@@ -8,15 +8,25 @@ import java.util.function.Function;
 public final class RuleTemplate {
     private RuleTemplate() {}
 
+    @FunctionalInterface
+    public interface Renderer {
+        String render(JsonNode event, String ruleId, String ruleName);
+    }
+
     public static Function<JsonNode,String> compile(String text, String id, String name) {
-        List<Function<JsonNode,String>> parts = new ArrayList<>();
+        Renderer renderer = compile(text);
+        return event -> renderer.render(event, id, name);
+    }
+
+    public static Renderer compile(String text) {
+        List<Renderer> parts = new ArrayList<>();
         int start = 0;
         for (int open; (open = text.indexOf("{{", start)) >= 0;) {
             boolean escaped = open > start && text.charAt(open - 1) == '\\';
             String literal = text.substring(start, escaped ? open - 1 : open);
-            parts.add(event -> literal);
+            parts.add((event, id, name) -> literal);
             if (escaped) {
-                parts.add(event -> "{{");
+                parts.add((event, id, name) -> "{{");
                 start = open + 2;
                 continue;
             }
@@ -32,7 +42,7 @@ public final class RuleTemplate {
                 }
             }
             CompiledPath path = ref.equals("rule.id") || ref.equals("rule.name") ? null : CompiledPath.compile(ref);
-            parts.add(event -> {
+            parts.add((event, id, name) -> {
                 List<JsonNode> nodes = new ArrayList<>();
                 if (path != null) path.forEachValue(event, nodes::add);
                 else nodes.add(TextNode.valueOf(ref.equals("rule.id") ? id : name));
@@ -54,10 +64,10 @@ public final class RuleTemplate {
             start = end + 2;
         }
         String tail = text.substring(start);
-        if (parts.isEmpty()) return event -> tail;
-        return event -> {
+        if (parts.isEmpty()) return (event, id, name) -> tail;
+        return (event, id, name) -> {
             var out = new StringBuilder();
-            for (var part : parts) out.append(part.apply(event));
+            for (var part : parts) out.append(part.render(event, id, name));
             return out.append(tail).toString();
         };
     }

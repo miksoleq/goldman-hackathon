@@ -60,7 +60,7 @@ Control przyjmuje reguły przez `POST /api/rules`, zapisuje je w PostgreSQL i od
 
 ### HTTP
 
-`POST /ingest` przyjmuje `Content-Type: application/json`. Payload może być dowolną wartością JSON: obiektem, tablicą, tekstem, liczbą, booleanem albo `null`. Limit wiadomości wynosi domyślnie 1 MiB (`INGEST_MAX_PAYLOAD_BYTES`) dla wszystkich adapterów. W kopercie HTTP pole `source` ma wartość `null`. Jeśli producent podaje źródło biznesowe w treści, reguła może je odczytać np. z `payload.service`.
+`POST /ingest` i `POST /ingest/{source}` przyjmują `application/json` oraz `text/plain` w UTF-8. Payload może być dowolną wartością JSON: obiektem, tablicą, tekstem, liczbą, booleanem albo `null`. Limit wiadomości wynosi domyślnie 1 MiB (`INGEST_MAX_PAYLOAD_BYTES`) dla wszystkich adapterów. Dla `/ingest` pole `source` ma wartość `http`, a dla `/ingest/{source}` pochodzi ze ścieżki. Jeśli producent podaje źródło biznesowe w treści, reguła może je odczytać np. z `payload.service`.
 
 ```sh
 curl -i -X POST http://localhost:8081/ingest \
@@ -68,13 +68,17 @@ curl -i -X POST http://localhost:8081/ingest \
   --data-binary '{"type":"payment_failed","details":{"code":"TIMEOUT"}}'
 ```
 
-Producenci korzystający wcześniej z `/ingest/{source}` przechodzą na `/ingest`.
+Jedno żądanie tekstowe tworzy jedno zdarzenie. Engine zapisuje treść w `payload.message` i ustawia `meta.contentType=text`. Przykład dla reguły OOM z §10:
+
+```sh
+curl -i http://localhost:8081/ingest/worker -H 'Content-Type: text/plain' --data-binary 'OOMKilled pid 42'
+```
 
 Sukces zwraca `202 Accepted` i `{"eventId":"..."}`. Niepoprawny JSON zwraca `400`, a body powyżej limitu `413`.
 
 ### Redis Streams
 
-Producenci zapisują do streamu `ingest:external` pola `payload` (tekst zawierający dowolny JSON) i opcjonalnie `source`. Adapter konsumuje grupą `engine`, kopertuje payload i przekazuje go do `events:ingest`.
+Producenci zapisują do streamu `ingest:external` pola `payload` (tekst zawierający dowolny JSON) i opcjonalnie `source`. Pole `adapter` ma wartość `redis-stream`. Gdy brak pola `source`, źródłem jest nazwa streamu. Adapter konsumuje grupą `engine`, kopertuje payload i przekazuje go do `events:ingest`.
 
 ```sh
 redis-cli XADD ingest:external '*' source payments payload '{"type":"payment_failed"}'
@@ -93,14 +97,18 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-producer.sh \
 
 Wpisz jedną linię JSON i zatwierdź Enterem. Producent lokalny może łączyć się przez `localhost:9092`.
 
+### Plik logu
+
+Ustaw `INGEST_FILE_ENABLED=true` i `INGEST_FILE_PATH` na ścieżkę pliku widoczną dla jednej instancji Engine. Adapter czyta plik od początku, potem śledzi dopisywane linie UTF-8 zakończone LF lub CRLF. W kopercie ustawia `adapter=file`, `contentType=text` i bezwzględną ścieżkę jako `source`. Po restarcie wznawia od pozycji zapisanej w Redis. Awaria między publikacją a zapisem pozycji może skutkować ponownym odczytem linii. Linie powyżej limitu są pomijane.
+
 ## Koperta w `events:ingest`
 
 Każdy wpis zawiera pole `event` z JSON-em w formacie:
 
 ```json
 {
-  "eventId": "uuid",
-  "source": null,
+  "eventId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "source": "http",
   "adapter": "http",
   "receivedAt": 1795212345678,
   "contentType": "json",
@@ -109,11 +117,13 @@ Każdy wpis zawiera pole `event` z JSON-em w formacie:
 }
 ```
 
+Nowe zdarzenia mają identyfikatory ULID. API odczytuje również historyczne `eventId` w formacie UUID. Identyfikatory alertów i reguł są typu UUID.
+
 Wartość `payload` zachowuje typ i strukturę dostarczonego JSON-a. Adapter HTTP publikuje bezpośrednio do `events:ingest`; Redis i Kafka przyjmują dane ze swoich wejść, a następnie przekazują je do tego samego streamu. Poświadczenia nie są wymagane w lokalnym profilu.
 
 ## Zakres szkieletu
 
-Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisów Redis, DLQ, idempotencji, autoryzacji ani obsługi treści innych niż JSON.
+Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisów Redis, DLQ, idempotencji dostaw ani autoryzacji.
 
 Warunek `jsonSchema` porównuje strukturę danych pod wskazaną ścieżką. Identyfikatory dopasowanych reguł trafiają do `matchedRuleIds`. [Przykładowa reguła i obsługiwane elementy schematu](docs/backend/business-decisions/2026-11-21-json-schema-matching.md).
 
@@ -137,6 +147,8 @@ route: {teams: [payments]}
 runbook: auto
 YAML
 ```
+
+`runbook: auto` dobiera aktywną instrukcję na podstawie pola `runbooks.matches`. Pole przyjmuje to samo drzewo warunków co `match` reguły, np. `{"path":"payload.code","op":"eq","value":"TIMEOUT"}`. Control rozsyła aktualny katalog przez Redis. Przy wielu dopasowaniach wygrywa pierwsza nazwa w kolejności A–Z. Jawna nazwa przypina instrukcję, a `runbook: none` wyłącza dobór. Alert zachowuje treść instrukcji z momentu utworzenia.
 
 Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
 dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, powtórzona nazwa

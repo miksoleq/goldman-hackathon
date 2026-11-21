@@ -39,16 +39,15 @@ A valid editor document creates the rule, user and team links, version 1, audit 
 ### Rule-created Redis contract
 
 - **Expected behavior** - Control publishes each created rule to `rules.created.v1`, using Redis Pub/Sub with the latest envelope per rule id in the companion hash. The JSON value contains `type`, `ruleId`, `version`, `configVersion`, `name`, `enabled`, `priority`, `teamIds`, `userIds`, `runbookId`, and `definition`. `definition` is the normalized v1 JSON document from the rule-definition schema. Engine uses `ruleId`, `enabled`, and `definition` to build matching buckets. Engine includes the configured recipients in each matched alert on `alerts.live`.
-- **Exceptions and boundaries** - A newer disabled version removes the rule from the active index. Engine remembers that version even when the rule was already absent. Duplicates and older versions are ignored. Only a newer enabled version can reactivate the rule. Invalid events do not alter the current snapshot.
+- **Exceptions and boundaries** - A newer disabled version removes the rule from the active index. Engine remembers that version even when the rule was already absent. Duplicates and older versions are ignored. Only a newer enabled version can reactivate the rule. A newer invalid definition removes the earlier version and records the skipped rule and reason in the snapshot. Malformed messages without a usable rule identity and version cannot supersede a known version.
 - **Reason** - The v1 definition schema excludes database identity and enabled state; those fields are supplied by Control in the event envelope.
 - **Verification** - `RedisRuleCreatedAdapterTest` covers accepted, disabled, and malformed events. `RedisRuleCreatedAdapterIT` verifies the real Redis listener against Redis.
 
 ### Ingest accepts schema-less JSON
 
-- **Expected behavior** - `POST /ingest` accepts any JSON value and returns `202` with an `eventId` after publishing an event envelope to `events:ingest`. HTTP envelopes have `source: null` and `adapter: "http"`. Business source fields are optional and remain in the original payload. Redis Stream entries on `ingest:external` use a `payload` field containing JSON text and an optional `source` field. Kafka values contain JSON text. Both adapters publish to the same internal stream.
-- **Exceptions and boundaries** - HTTP requests must use `application/json`; malformed or empty bodies return `400`, and messages over the configured limit return `413`. The default limit is 1 MiB across the adapters. Invalid Redis and Kafka JSON records are dropped. The envelope records `eventId`, `source`, `adapter`, `receivedAt`, `contentType`, and the untouched JSON value in `payload`.
-- **Reason** - The first engine slice accepts messages from the three specified transports without constraining producer payloads.
-- **Verification** - Manual smoke flow is documented in the root `README.md`; automated ingest tests have not been added in this initial skeleton.
+- **Expected behavior** — HTTP publishes any JSON value or one UTF-8 text body. Its source is the URL segment on `POST /ingest/{source}`, defaulting to `http` on `POST /ingest`. Redis uses adapter `redis-stream` and the producer's source or stream name. Kafka uses `kafka` and its topic. A configured log file uses `file` and its full path. Text envelopes expose `payload.message` and `meta.contentType=text` for matching and deduplication.
+- **Boundaries** — The default limit is 1 MiB of input bytes. HTTP returns 202 after publication, 400 for empty input or malformed JSON, 413 for an oversized body. File reads resume from the last completed line checkpoint and skip oversized lines. Each physical log has one configured reader.
+- **Verification** — `IngestionServiceTest`, `ExternalInputsIT`, and `scripts/test-oom-ingest.py` cover content types, source identity, file resumption and the complete OOM alert flow.
 
 ### Durable alert reception
 
@@ -72,7 +71,11 @@ Use one subsection per rule with a short, descriptive heading.
 
 ### Attached runbook instructions
 
-Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. An explicitly attached runbook wins. With `none` Engine skips selection. With `auto` (the default), Engine uses compiled `runbooks.matches` predicates on the event envelope. Only enabled candidates participate. The first matching name wins in case-insensitive A–Z order, with the original spelling as a deterministic tie breaker. No match yields an alert without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+
+### Event IDs
+
+Engine issues ULIDs using the envelope's receipt timestamp. Alert consumers and the detail API preserve either a new ULID or a historical UUID. `EventIdTest`, `RedisRuleCreatedAdapterIT` and `LiveAlertSubscriptionIT` verify both formats across serialization, storage and replay.
 
 ### Rule revisions
 
