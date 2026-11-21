@@ -22,7 +22,7 @@ class RedisExternalStreamAdapterIT {
     void acknowledgesOnlyCompletedRecordsInRedis() {
         String stream = "it:external:" + UUID.randomUUID();
         var ingestion = mock(IngestionService.class);
-        doThrow(new IllegalStateException("unavailable")).when(ingestion).accept("failed", "redis", "{}");
+        doThrow(new IllegalStateException("unavailable")).when(ingestion).accept("failed", "redis-stream", "{}");
         var adapter = new RedisExternalStreamAdapter(redis, ingestion, stream, "group", "consumer", 2, 10);
         try {
             adapter.run(null);
@@ -32,8 +32,8 @@ class RedisExternalStreamAdapterIT {
             operations.add(stream, Map.of("source", "failed", "payload", "{}"));
             adapter.poll();
             assertEquals(1L, operations.pending(stream, "group").getTotalPendingMessages());
-            verify(ingestion).accept("ok", "redis", "{}");
-            verify(ingestion).accept("failed", "redis", "{}");
+            verify(ingestion).accept("ok", "redis-stream", "{}");
+            verify(ingestion).accept("failed", "redis-stream", "{}");
         } finally {
             redis.delete(List.of(stream));
         }

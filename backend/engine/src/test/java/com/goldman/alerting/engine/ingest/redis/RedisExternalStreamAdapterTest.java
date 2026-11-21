@@ -22,7 +22,7 @@ class RedisExternalStreamAdapterTest {
         var invalid = StreamRecords.newRecord().ofMap(Map.of("source", "bad")).withStreamKey("input").withId(RecordId.of("2-0"));
         var failed = StreamRecords.newRecord().ofMap(Map.of("payload", "{}", "source", "failed")).withStreamKey("input").withId(RecordId.of("3-0"));
         when(streams.read(any(Consumer.class), any(StreamReadOptions.class), any(StreamOffset.class))).thenReturn(List.of(ok, invalid, failed));
-        doThrow(new IllegalStateException("unavailable")).when(ingestion).accept("failed", "redis", "{}");
+        doThrow(new IllegalStateException("unavailable")).when(ingestion).accept("failed", "redis-stream", "{}");
         var adapter = new RedisExternalStreamAdapter(redis, ingestion, "input", "group", "consumer", 200, 10);
         adapter.run(null);
         adapter.poll();
@@ -51,6 +51,6 @@ class RedisExternalStreamAdapterTest {
         adapter.run(null);
         adapter.poll();
         verify(streams, times(2)).read(any(Consumer.class), any(StreamReadOptions.class), any(StreamOffset.class));
-        verify(ingestion, times(2)).accept("redis-external", "redis", "{}");
+        verify(ingestion, times(2)).accept("input", "redis-stream", "{}");
     }
 }

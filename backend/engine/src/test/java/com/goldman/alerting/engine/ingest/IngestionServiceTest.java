@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldman.alerting.engine.ingest.kafka.KafkaExternalAdapter;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,6 +14,16 @@ class IngestionServiceTest {
     private final ArrayList<MessageEnvelope> events = new ArrayList<>();
     private final IngestionService service = new IngestionService(new ObjectMapper(),
             (event, alerts) -> events.add(event), mock(RuleIndexManager.class), 6);
+
+    @Test void utf8LimitMatchesEncoderForBoundaryAndMalformedCharacters() {
+        String[] inputs = {"", "abc", "\u017c", "\u20ac", "\ud83d\ude00", "\ud800", "\udc00", "a\ud800b\ud83d\ude00"};
+        for (String input : inputs) {
+            int length = input.getBytes(StandardCharsets.UTF_8).length;
+            for (int limit = 0; limit <= length + 1; limit++) {
+                assertEquals(length > limit, IngestionService.exceedsUtf8Limit(input, limit));
+            }
+        }
+    }
 
     @Test void textIsVerbatimAndLimitedByUtf8Bytes() {
         var event = service.acceptText("worker", "http", " ż12 ");

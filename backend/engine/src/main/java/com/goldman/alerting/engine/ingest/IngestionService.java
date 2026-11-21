@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -78,9 +77,28 @@ public class IngestionService {
     }
 
     private void checkSize(String input) {
-        if (input.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
+        if (exceedsUtf8Limit(input, maxPayloadBytes)) {
             throw new PayloadTooLargeException(maxPayloadBytes);
         }
+    }
+
+    static boolean exceedsUtf8Limit(String input, int limit) {
+        int remaining = limit;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            int bytes;
+            if (c < 0x80) bytes = 1;
+            else if (c < 0x800) bytes = 2;
+            else if (Character.isHighSurrogate(c) && i + 1 < input.length()
+                    && Character.isLowSurrogate(input.charAt(i + 1))) {
+                bytes = 4;
+                i++;
+            } else if (Character.isSurrogate(c)) bytes = 1; // UTF-8 encoder replaces malformed input with '?'.
+            else bytes = 3;
+            if (remaining < bytes) return true;
+            remaining -= bytes;
+        }
+        return false;
     }
 
     private MessageEnvelope publish(String source, String adapter, String contentType, JsonNode payload) {
