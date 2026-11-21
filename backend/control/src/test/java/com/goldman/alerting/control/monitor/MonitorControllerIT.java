@@ -83,7 +83,7 @@ class MonitorControllerIT {
         LiveAlert alert = new LiveAlert(1, "alert.created", alertId, eventId, ruleId,
                 List.of(), List.of(UUID.randomUUID()), "high", "Payment failed",
                 "The payment provider rejected the request.", 1, Instant.parse("2026-11-21T12:00:00Z"),
-                runbookId);
+                runbookId, null);
         database.insertInto(LIVE_ALERT_INBOX)
                 .set(LIVE_ALERT_INBOX.ALERT_ID, alertId)
                 .set(LIVE_ALERT_INBOX.PAYLOAD, JSONB.valueOf(mapper.writeValueAsString(alert)))
