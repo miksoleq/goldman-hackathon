@@ -1,5 +1,6 @@
 package com.goldman.alerting.engine.ingest;
 
+import com.github.f4b6a3.ulid.UlidCreator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,8 +56,8 @@ public class IngestionService {
     }
 
     public MessageEnvelope accept(String source, String adapter, JsonNode payload) {
-        String eventId = UUID.randomUUID().toString();
         long receivedAt = System.currentTimeMillis();
+        String eventId = UlidCreator.getUlid(receivedAt).toString();
         var event = objectMapper.createObjectNode();
         event.set("payload", payload);
         event.putObject("meta").put("source", source).put("adapter", adapter)
@@ -67,7 +68,7 @@ public class IngestionService {
             var spec = rule.alert();
             if (spec == null) continue;
             var book = spec.runbook().apply(event);
-            var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.fromString(eventId),
+            var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), eventId,
                     UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
                     spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),
                     book == null ? LiveAlert.UNASSIGNED_RUNBOOK : book.id(), book);

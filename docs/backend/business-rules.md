@@ -73,3 +73,7 @@ Use one subsection per rule with a short, descriptive heading.
 ### Attached runbook instructions
 
 Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+
+### Event IDs
+
+Engine issues ULIDs using the envelope's receipt timestamp. Alert consumers and the detail API preserve either a new ULID or a historical UUID. `EventIdTest`, `RedisRuleCreatedAdapterIT` and `LiveAlertSubscriptionIT` verify both formats across serialization, storage and replay.

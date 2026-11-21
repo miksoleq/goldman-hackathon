@@ -80,7 +80,7 @@ class MonitorControllerIT {
         messageId = redis.opsForStream().add(EVENT_STREAM, Map.of("event", """
                 {"eventId":"%s","source":"payments","adapter":"http","receivedAt":1795219200000,"contentType":"json","payload":{"type":"payment_failed"},"matchedRuleIds":["%s"]}
                 """.formatted(eventId, ruleId)));
-        LiveAlert alert = new LiveAlert(1, "alert.created", alertId, eventId, ruleId,
+        LiveAlert alert = new LiveAlert(1, "alert.created", alertId, eventId.toString(), ruleId,
                 List.of(), List.of(UUID.randomUUID()), "high", "Payment failed",
                 "The payment provider rejected the request.", 1, Instant.parse("2026-11-21T12:00:00Z"),
                 runbookId, null);

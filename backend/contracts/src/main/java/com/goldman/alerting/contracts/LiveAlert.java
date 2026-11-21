@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public record LiveAlert(int v, String type, UUID alertId, UUID eventId, UUID ruleId,
+public record LiveAlert(int v, String type, UUID alertId, String eventId, UUID ruleId,
                         List<UUID> teamIds, List<UUID> userIds, String severity,
                         String title, String body, int count, Instant occurredAt, UUID runbookId, Runbook runbook) {
     public static final String STREAM = "alerts.live";
