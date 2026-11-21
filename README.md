@@ -107,7 +107,7 @@ Każdy wpis zawiera pole `event` z JSON-em w formacie:
 
 ```json
 {
-  "eventId": "uuid",
+  "eventId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
   "source": "http",
   "adapter": "http",
   "receivedAt": 1795212345678,
@@ -116,6 +116,8 @@ Każdy wpis zawiera pole `event` z JSON-em w formacie:
   "matchedRuleIds": []
 }
 ```
+
+Nowe zdarzenia mają identyfikatory ULID. API odczytuje również historyczne `eventId` w formacie UUID. Identyfikatory alertów i reguł są typu UUID.
 
 Wartość `payload` zachowuje typ i strukturę dostarczonego JSON-a. Adapter HTTP publikuje bezpośrednio do `events:ingest`; Redis i Kafka przyjmują dane ze swoich wejść, a następnie przekazują je do tego samego streamu. Poświadczenia nie są wymagane w lokalnym profilu.
 
