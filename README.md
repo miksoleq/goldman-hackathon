@@ -148,6 +148,8 @@ runbook: auto
 YAML
 ```
 
+`runbook: auto` dobiera aktywną instrukcję na podstawie pola `runbooks.matches`. Pole przyjmuje to samo drzewo warunków co `match` reguły, np. `{"path":"payload.code","op":"eq","value":"TIMEOUT"}`. Control rozsyła aktualny katalog przez Redis. Przy wielu dopasowaniach wygrywa pierwsza nazwa w kolejności A–Z. Jawna nazwa przypina instrukcję, a `runbook: none` wyłącza dobór. Alert zachowuje treść instrukcji z momentu utworzenia.
+
 Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
 dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, powtórzona nazwa
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,

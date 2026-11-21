@@ -41,3 +41,7 @@ Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.cont
 ### Text ingest and OOM acceptance
 
 Use JDK 21, Maven, Python 3 and Docker. From `backend/`, run `mvn -B verify` with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `REDIS_PORT` and `SPRING_DATA_REDIS_PORT` pointing at disposable PostgreSQL 17 and Redis 7.4 instances. From the repository root, run `python3 scripts/test-oom-ingest.py`. The script starts the packaged Control and Engine on ephemeral HTTP ports, provisions its own PostgreSQL and Redis on loopback ports, and removes them after checking the alert detail API.
+
+### Automatic runbook selection
+
+Run `mvn -B -pl contracts,rules,control,engine clean verify` from `backend/` with JDK 21 and disposable PostgreSQL and Redis instances. For the live acceptance check, start the two packaged services with `RULES_REDIS_ENABLED=true` on that isolated stack. From the repository root, run `python3 scripts/test-auto-runbook.py --engine "$ENGINE_URL" --control "$CONTROL_URL" --postgres-container "$TEST_POSTGRES_CONTAINER"`. The script verifies catalog updates, disabling and the stored instruction through the alert detail API. It leaves synthetic fixtures on the supplied test stack.

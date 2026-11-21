@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import com.goldman.alerting.contracts.LiveAlert;
 import com.goldman.alerting.engine.rules.Rule;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
+import com.goldman.alerting.engine.rules.RunbookCatalog;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -25,16 +27,25 @@ public class IngestionService {
     private final int maxPayloadBytes;
     private final RuleIndexManager rules;
 
+    private final RunbookCatalog runbooks;
+
+    public IngestionService(ObjectMapper mapper, IngestPublisher publisher, RuleIndexManager rules, int maxPayloadBytes) {
+        this(mapper, publisher, rules, new RunbookCatalog(), maxPayloadBytes);
+    }
+
+    @Autowired
     public IngestionService(
             ObjectMapper objectMapper,
             IngestPublisher publisher,
             RuleIndexManager rules,
+            RunbookCatalog runbooks,
             @Value("${ingest.max-payload-bytes:1048576}") int maxPayloadBytes
     ) {
         this.objectMapper = objectMapper;
         this.jsonReader = objectMapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         this.publisher = publisher;
         this.rules = rules;
+        this.runbooks = runbooks;
         if (maxPayloadBytes < 1) {
             throw new IllegalArgumentException("ingest.max-payload-bytes must be positive");
         }
@@ -84,7 +95,7 @@ public class IngestionService {
         for (Rule rule : matches) {
             var spec = rule.alert();
             if (spec == null) continue;
-            var book = spec.runbook().apply(event);
+            var book = runbooks.select(rule, event);
             var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), eventId,
                     UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
                     spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),

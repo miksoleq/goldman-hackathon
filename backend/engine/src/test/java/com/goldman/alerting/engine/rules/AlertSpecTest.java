@@ -13,7 +13,7 @@ class AlertSpecTest {
                  "body":"Workflow {{payload.workflow}}: {{payload.reason | default: timeout}}",
                  "severity":"{{payload.level}}"}
                 """), new com.goldman.alerting.contracts.Runbook(java.util.UUID.randomUUID(), "steps", "text",
-                "Check {{payload.workflow}}: {{payload.reason | default: timeout}}"));
+                "Check {{payload.workflow}}: {{payload.reason | default: timeout}}"), null);
         var event = mapper.readTree("""
                 {"payload":{"workflow":"WF-42","service":"PAYMENTS","level":"ERROR"}}
                 """);
