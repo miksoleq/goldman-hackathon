@@ -192,7 +192,7 @@ public sealed interface Condition permits Condition.All, Condition.Any, Conditio
                 }
             }
             case REGEX -> {
-                if (!value.isTextual() || value.textValue().isEmpty() || value.textValue().length() > 500) {
+                if (!value.isTextual() || value.textValue().isEmpty() || value.textValue().codePointCount(0, value.textValue().length()) > 500) {
                     throw new InvalidRuleDefinitionException("regex expects a string of 1 to 500 characters");
                 }
             }
