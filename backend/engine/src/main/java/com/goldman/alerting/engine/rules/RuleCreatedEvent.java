@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Objects;
 
-/** Control's Kafka envelope for a rule sent to Engine for indexing. */
-public record RuleCreatedEvent(String ruleId, boolean enabled, JsonNode definition) {
+/** Control's rule-created envelope for a rule sent to Engine for indexing. */
+public record RuleCreatedEvent(String ruleId, int version, boolean enabled, JsonNode definition) {
 
     public RuleCreatedEvent {
         if (ruleId == null || ruleId.isBlank()) {
@@ -55,6 +55,10 @@ public record RuleCreatedEvent(String ruleId, boolean enabled, JsonNode definiti
         if (definition == null || !definition.isObject()) {
             throw new InvalidRuleDefinitionException("Rule event definition must be an object");
         }
-        return new RuleCreatedEvent(ruleId.textValue(), enabled.booleanValue(), definition);
+        JsonNode version = event.get("version");
+        if (version != null && (!version.isIntegralNumber() || !version.canConvertToInt() || version.intValue() < 1)) {
+            throw new InvalidRuleDefinitionException("Rule event version must be a positive integer");
+        }
+        return new RuleCreatedEvent(ruleId.textValue(), version == null ? 1 : version.intValue(), enabled.booleanValue(), definition);
     }
 }

@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
-@SpringBootTest(properties = "rules.kafka.enabled=false")
+@SpringBootTest(properties = "rules.redis.enabled=false")
 @Transactional
 class RulePersistenceIT {
     @Autowired RuleDocument parser;

@@ -6,6 +6,10 @@ spring:
     name: control
   jooq:
     sql-dialect: POSTGRES
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:55432/alerting}
     username: ${SPRING_DATASOURCE_USERNAME:alerting}
@@ -23,6 +27,6 @@ management:
       show-details: never
 
 rules:
-  kafka:
-    enabled: ${RULES_KAFKA_ENABLED:false}
-    topic: ${RULES_KAFKA_TOPIC:rules.created.v1}
+  redis:
+    enabled: ${RULES_REDIS_ENABLED:false}
+    channel: ${RULES_REDIS_CHANNEL:rules.created.v1}
