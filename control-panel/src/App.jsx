@@ -3,6 +3,7 @@ import { Bell, BookOpen, Grid2X2, Inbox, ListFilter, Plus, RefreshCw, Search, Sh
 import { AccountMenu, LoginForm, useAuth } from "../../web-shared/Auth.jsx";
 import RunbookEditor from "./RunbookEditor.jsx";
 import TeamsPage from "./TeamsPage.jsx";
+import RunbookActions from "../../web-shared/RunbookActions.jsx";
 import RuleBuilder from "./RuleBuilder.jsx";
 import { OPERATORS } from "./ruleModel.js";
 import { fetchFeed, fetchRuleSnapshot } from "./api.js";
@@ -148,7 +149,7 @@ function RulesPage({ rules, loading, onCreate, selectedId, onSelect }) {
   </div>;
 }
 
-function ActivityPage({ type, items, rules }) {
+function ActivityPage({ type, items, rules, onRefresh }) {
   const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -182,7 +183,7 @@ function ActivityPage({ type, items, rules }) {
       {!filtered.length && <Empty title={items.length ? "No matching alerts" : "No alerts yet"} text={items.length ? "Adjust the search or filters." : "New alerts will appear here when available."} />}</div>
       {current && <div className="activity-detail"><div className="alert-detail-header"><div><p className="eyebrow">ALERT · {String(current.severity || "info").toUpperCase()}</p><h2>{current.title || "Alert"}</h2></div><span className="status-pill enabled">{displayTime(current.occurredAt)}</span></div>
         {current.body && <p>{current.body}</p>}<dl className="detail-list"><div><dt>Rule</dt><dd>{rules.find(rule => rule.id === current.ruleId)?.name || current.ruleId || "Unavailable"}</dd></div><div><dt>Recipients</dt><dd>{(current.teamIds || []).length} teams · {(current.userIds || []).length} users</dd></div><div><dt>Runbook</dt><dd>{current.runbook?.name || "Not assigned"}</dd></div></dl>
-        {current.runbook?.content && <><h3>Instructions</h3><pre>{current.runbook.content}</pre></>}{current.actions?.length > 0 && <RunbookActions key={current.alertId} alert={current} onRefresh={() => {}} />}</div>}
+        {current.runbook?.content && <><h3>Instructions</h3><pre>{current.runbook.content}</pre></>}{(current.runbook?.actions?.length > 0 || current.actions?.length > 0) && <RunbookActions key={current.alertId} alert={current} onRefresh={onRefresh} />}</div>}
     </div>
   </div>;
 }
@@ -257,7 +258,7 @@ export default function App() {
         : active === "overview" ? <Overview feeds={feeds} navigate={navigate} createRule={() => setCreating(true)} />
           : active === "rules" ? <RulesPage rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />
             : active === "runbooks" ? <RunbooksPage items={feeds.runbooks.items} open={setBookEditor} />
-              : <ActivityPage type={active} items={feeds[active]?.items || []} rules={rules} />}
+              : <ActivityPage onRefresh={refresh} type={active} items={feeds[active]?.items || []} rules={rules} />}
     </main>
   </div>;
 }

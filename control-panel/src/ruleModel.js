@@ -1,3 +1,4 @@
+import { actionError, instructionError, bookResource } from "./runbookModel.js";
 export const OPERATORS = [
   ["exists", "Field is present", "boolean"],
   ["eq", "Is equal to", "typed"],
@@ -103,6 +104,7 @@ export function conditionSummary(node) {
 export function toRulePayload(draft) {
   const teams = draft.teams.split(",").map(value => value.trim()).filter(Boolean);
   const users = draft.users.split(",").map(value => value.trim()).filter(Boolean);
+  const book = draft.createRunbook ? bookResource(draft.inlineBook) : null;
   const payload = {
     name: draft.name.trim(),
     enabled: draft.enabled,
@@ -118,7 +120,7 @@ export function toRulePayload(draft) {
       windowSec: Number(draft.windowSec)
     },
     stopProcessing: draft.stopProcessing,
-    runbook: draft.runbook || "auto"
+    runbook: book ? { name: book.name, ...book.spec } : draft.runbook || "auto"
   };
   return payload;
 }
@@ -126,6 +128,10 @@ export function toRulePayload(draft) {
 export function validateDraft(draft, step = "all") {
   if (!draft.name.trim()) return "Enter a rule name.";
   if (step !== "trigger" && !draft.teams.trim() && !draft.users.trim()) return "Add at least one team or user recipient.";
+  if (step !== "trigger" && draft.createRunbook) {
+    const error = instructionError(draft.inlineBook) || actionError(draft.inlineBook.actions);
+    if (error) return error;
+  }
   if (String(draft.priority).trim() === "" || !Number.isInteger(Number(draft.priority))) return "Priority must be a whole number.";
   if (Number(draft.priority) < -2147483648 || Number(draft.priority) > 2147483647) return "Priority is outside the supported range.";
   if (draft.dedupKeys.split(",").filter(value => value.trim()).length > 10) return "Deduplication supports up to 10 fields.";

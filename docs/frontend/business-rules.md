@@ -28,3 +28,7 @@ Both frontends restore the server session on load and on window focus. Rule list
 ### Authoring runbooks
 
 In Control Panel, signed-in members and leaders create and edit shared runbooks in Instructions, Actions and Review. The editor retains source whitespace for text, Markdown and YAML, displays YAML syntax errors with line numbers, and previews Markdown with raw HTML disabled. The action catalog supplies parameters and execution modes. Editing preserves existing inline Python settings. Opening a legacy URL proposes text with the original link. A name collision or a concurrent edit keeps the draft available. The runbook editor browser scenarios verify the form, API and alert snapshots in Event Monitor.
+
+### Create a runbook while creating a rule
+
+The Response section can attach an existing runbook or create one in the same rule submission. A Python Script step starts with human approval enabled. Choosing automatic execution allows the worker to run that step when its predecessors succeed. Both alert views show the persisted result and allow an operator to confirm a pending step. The inline-python browser scenario covers both execution modes and output chaining.

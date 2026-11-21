@@ -211,3 +211,5 @@ td small { max-width: 500px; margin-top: 4px; color: var(--muted); overflow: hid
   .topbar { height: auto; min-height: 48px; flex-wrap: wrap; padding-block: 8px; gap: 6px 16px; }
   .topbar-right { margin-left: auto; }
 }
+
+.python-source { font-family: ui-monospace, monospace; tab-size: 4; }

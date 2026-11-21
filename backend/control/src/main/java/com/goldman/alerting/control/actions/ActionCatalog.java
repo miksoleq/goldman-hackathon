@@ -46,7 +46,7 @@ public class ActionCatalog {
                 if (!params.isArray()) continue;
                 var names = new ArrayList<String>();
                 params.forEach(param -> names.add(param.asText()));
-                boolean selectable = !"python".equals(row.getKind()) || template.path("code").isTextual();
+                boolean selectable = !"python".equals(row.getKind()) || "python".equals(row.getName()) || template.path("code").isTextual();
                 options.add(new Option(row.getName(), Objects.requireNonNullElse(row.getDescription(), row.getName()),
                         names, row.getAutoExecute(), row.getApprovalRequired(), selectable));
             } catch (JsonProcessingException e) {

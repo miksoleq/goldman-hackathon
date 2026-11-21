@@ -236,6 +236,10 @@ Kolejna reguła może wskazać tę instrukcję przez `runbook: settlement-timeou
 
 ### Automatyczne akcje runbooka
 
+W Control Panel wybierz **Create rule**, ustaw warunek, a w kroku **Configure the alert** dodaj odbiorcę. W sekcji **Response** kliknij **Create a new runbook** i nadaj mu nazwę. W polu **Action type** wybierz **Python Script**, kliknij **Add action** i wpisz kod funkcji `run(ctx)`. Zapisanie reguły tworzy również runbook.
+
+Domyślne **Require approval** pozwala uruchomić krok w zakładce **Alerts** po kliknięciu **Python Script** i **Confirm**. Wybierz **Run automatically on alert**, aby skrypt wykonał się po dopasowaniu zdarzenia i zakończeniu wcześniejszych kroków. Wynik, logi i czas wykonania są widoczne w szczegółach alertu.
+
 Do runbooka dodaj opcjonalne pole `actions`. Poniższa lista korzysta z integracji workflow i zespołu istniejącego w Control.
 
 ```yaml

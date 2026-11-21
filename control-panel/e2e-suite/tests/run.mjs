@@ -1,3 +1,4 @@
+import { inlinePython } from "../scenarios/inline-python.mjs";
 import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
 import { pythonApproval } from "../scenarios/python-approval.mjs";
@@ -21,6 +22,8 @@ const page = await context.newPage();
 page.setDefaultTimeout(15000);
 try {
   await pythonApproval(page, settings);
+  await inlinePython(page, settings);
+  console.log("PASS: inline rule wizard → automatic Python → approved Python in Control Panel");
   console.log("PASS: rule → event → alert → approved Python → persisted history and deduplication");
 } catch (error) {
   await mkdir("e2e-results", { recursive: true });

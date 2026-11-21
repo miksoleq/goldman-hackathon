@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import RunbookActions from "./RunbookActions.jsx";
+import RunbookActions from "../../web-shared/RunbookActions.jsx";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -56,4 +56,16 @@ it("shows automatic steps and their completed results after the monitor refreshe
   expect(screen.getByText(/"status": "running"/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
   expect(fetch.mock.calls.every(([url]) => url === "/api/alerts/a123")).toBe(true);
+});
+
+it("shows the Python audit result, streams, elapsed time and approver", async () => {
+  const step = { ...retry, kind: "python", title: "Python Script", available: false, status: "succeeded",
+    approvedBy: "demo.member", result: { status: "SUCCESS", result: { healthy: true },
+      stdout: "checked", stderr: "warning", durationMs: 17 } };
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ actions: [step] })));
+  render(<RunbookActions alert={alert} onRefresh={vi.fn()} />);
+  expect(await screen.findByText(/17 ms · Approved by demo.member/)).toBeTruthy();
+  for (const text of ["Approval Required", "checked", "warning", /"healthy": true/]) {
+    expect(screen.getByText(text)).toBeTruthy();
+  }
 });

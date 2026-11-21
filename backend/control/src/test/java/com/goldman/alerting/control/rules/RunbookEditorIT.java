@@ -60,7 +60,15 @@ class RunbookEditorIT {
                 .getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";")[0];
         var doc = json.createObjectNode().put("kind", "Runbook").put("name", name);
         var spec = doc.putObject("spec").put("format", "text").put("content", "First");
-        assertThat(call(GET, "/action-types", null, cookie, null).getBody().toString()).contains("escalate", "workflowId");
+        var catalog = call(GET, "/action-types", null, cookie, null).getBody();
+        assertThat(catalog.toString()).contains("escalate", "workflowId");
+        assertThat(catalog.findValuesAsText("name")).contains("python");
+        for (var option : catalog) {
+            if ("python".equals(option.path("name").asText())) {
+                assertThat(option.path("selectable").asBoolean()).isTrue();
+                assertThat(option.path("approvalRequired").asBoolean()).isTrue();
+            }
+        }
         var created = call(POST, "/apply", doc, cookie, null);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         UUID id = UUID.fromString(created.getBody().path("id").asText());

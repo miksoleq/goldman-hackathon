@@ -9,6 +9,7 @@ Zestaw uruchamia Control, Engine, Redis, PostgreSQL, runner i oba interfejsy w o
 | Reguła i alert | Zalogowany użytkownik tworzy regułę. Test wysyła zdarzenie do momentu aktywacji reguły w Engine, a następnie sprawdza alert widoczny w monitorze. |
 | Python i zatwierdzenie | Health check zwraca UP. Skrypt oczekuje na zatwierdzenie, żądanie bez potwierdzenia zwraca 409, a kliknięcie Confirm zapisuje wynik i nazwę operatora. Wynik pozostaje widoczny po odświeżeniu. |
 | Deduplikacja | Ponowne zdarzenie z tym samym kluczem zwiększa licznik i zachowuje te same kroki i ich wynik. |
+| Kreator reguły z nowym runbookiem | Użytkownik buduje regułę i dwa kroki Python w jednym formularzu. Po dopasowaniu zdarzenia pierwszy skrypt wykonuje się automatycznie. Użytkownik zatwierdza drugi w panelu Alerts i sprawdza wynik połączonych kroków. |
 | Named i inline Python | Utworzenie typu akcji i runbooka przez API, przekazanie wyniku między krokami i sprawdzenie kontekstu zdarzenia i alertu. |
 | Błędy i timeout | Wyjątek i nieskończona pętla trafiają do historii jako ERROR i TIMEOUT. Kolejny krok jest pominięty. |
 | Runner | Składnia, błędy serializacji, limit logów, zasobów i czasu oraz odmowa otwierania plików i gniazd są sprawdzane przez HTTP. |

@@ -1,6 +1,6 @@
 import { AccountMenu } from "../../web-shared/Auth.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
-import RunbookActions from "./RunbookActions.jsx";
+import RunbookActions from "../../web-shared/RunbookActions.jsx";
 import { FEED_NAMES, fetchMonitorFeed } from "./api.js";
 
 const EMPTY_MESSAGES = {

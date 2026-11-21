@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { loadRunbookEditor, saveRunbook } from "./api.js";
-import { bookResource, draftFromBook, executionMode, formats, instructionError, moveAction } from "./runbookModel.js";
+import { bookResource, draftFromBook, executionMode, formats, instructionError, moveAction, newAction, actionError } from "./runbookModel.js";
 
 const steps = ["Instructions", "Actions", "Review & save"];
 
@@ -9,9 +9,11 @@ function ActionFields({ actions, types, onChange }) {
   const [type, setType] = useState("");
   function add() {
     const option = types.find(item => item.name === type);
-    const params = Object.fromEntries(option.params.map(key => [key, ""]));
-    onChange([...actions, { type, params }]);
+    onChange([...actions, newAction(option)]);
     setType("");
+  }
+  function edit(index, patch) {
+    onChange(actions.map((action, i) => i === index ? { ...action, ...patch } : action));
   }
   function updateParam(index, key, value) {
     onChange(actions.map((action, i) => i === index ? { ...action, params: { ...action.params, [key]: value } } : action));
@@ -22,9 +24,16 @@ function ActionFields({ actions, types, onChange }) {
       return <fieldset className="runbook-step" key={index}><legend>{index + 1}. {option?.title || action.type}</legend>
         <p>{executionMode(action, option)}</p>
         {Object.entries(action.params).map(([key, value]) => <label key={key}>{key}
-          <input required value={value} readOnly={action.code != null} onChange={event => updateParam(index, key, event.target.value)} />
+          <input required value={value} onChange={event => updateParam(index, key, event.target.value)} />
         </label>)}
-        {action.code != null && <details><summary>Python script (read-only)</summary><pre>{action.code}</pre></details>}
+        {(action.type === "python" || action.code != null) && <>
+          <label>Python code<textarea className="python-source" rows="7" spellCheck={false} maxLength={65536}
+            value={action.code ?? ""} onChange={e => edit(index, { code: e.target.value })} /></label>
+          <label>Execution<select value={action.approval ?? (option?.approvalRequired === false ? "none" : "required")}
+            onChange={e => edit(index, { approval: e.target.value })}>
+            <option value="required">Require approval</option><option value="none">Run automatically on alert</option>
+          </select></label>
+        </>}
         <div className="condition-actions">
           <button className="secondary-button" type="button" disabled={index === 0} onClick={() => onChange(moveAction(actions, index, index - 1))}>Move up</button>
           <button className="secondary-button" type="button" disabled={index === actions.length - 1} onClick={() => onChange(moveAction(actions, index, index + 1))}>Move down</button>
@@ -37,6 +46,35 @@ function ActionFields({ actions, types, onChange }) {
       {types.filter(item => item.selectable).map(item => <option value={item.name} key={item.name}>{item.title}</option>)}
     </select></label><button className="secondary-button" type="button" disabled={!type} onClick={add}>Add action</button></div>
   </>;
+}
+
+function InstructionFields({ draft, update }) {
+  return <>
+      <div className="form-grid"><label>Runbook name<input required value={draft.name} onChange={e => update({ name: e.target.value })} /></label>
+        <label>Format<select value={draft.format} onChange={e => update({ format: e.target.value })}>
+          {formats.map(format => <option key={format}>{format}</option>)}</select></label></div>
+      <div className="instruction-content"><label htmlFor="runbook-content">Instructions</label><textarea id="runbook-content" spellCheck={draft.format !== "yaml"} rows="10" value={draft.content}
+        onChange={e => update({ content: e.target.value })} /></div>
+  </>;
+}
+
+export function InlineRunbookFields({ draft, update }) {
+  const [types, setTypes] = useState([]);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setError("");
+    loadRunbookEditor(null, controller.signal)
+      .then(data => { if (!controller.signal.aborted) setTypes(data.types); })
+      .catch(cause => { if (!controller.signal.aborted) setError(cause.message); });
+    return () => controller.abort();
+  }, [attempt]);
+  return <fieldset className="runbook-step"><legend>New runbook</legend>
+    <InstructionFields draft={draft} update={update} />
+    {error && <p role="alert">{error} <button type="button" onClick={() => setAttempt(attempt + 1)}>Retry</button></p>}
+    <ActionFields actions={draft.actions} types={types} onChange={actions => update({ actions })} />
+  </fieldset>;
 }
 
 function RunbookForm({ data, onCancel, onSaved }) {
@@ -53,10 +91,10 @@ function RunbookForm({ data, onCancel, onSaved }) {
   async function submit(event) {
     event.preventDefault();
     if (saving) return;
-    const issue = instructionError(draft);
+    const issue = instructionError(draft, step === 0);
     if (issue) { setStep(0); setError(issue); return; }
-    if (step > 0 && draft.actions.some(action => Object.values(action.params).some(value => !value.trim()))) {
-      setStep(1); setError("Enter a value for each action parameter."); return;
+    if (step > 0 && actionError(draft.actions)) {
+      setStep(1); setError(actionError(draft.actions)); return;
     }
     if (step < 2) { setError(""); setStep(step + 1); return; }
     setSaving(true);
@@ -72,13 +110,7 @@ function RunbookForm({ data, onCancel, onSaved }) {
     <div className="builder-top"><div><p className="eyebrow">{data.book ? "EDIT RUNBOOK" : "CREATE RUNBOOK"} · STEP {step + 1} OF 3</p>
       <h2 tabIndex="-1" ref={heading}>{steps[step]}</h2></div>
       <button className="text-button" type="button" onClick={onCancel} disabled={saving}>Cancel</button></div>
-    {step === 0 && <>
-      <div className="form-grid"><label>Runbook name<input required value={draft.name} onChange={e => update({ name: e.target.value })} /></label>
-        <label>Format<select value={draft.format} onChange={e => update({ format: e.target.value })}>
-          {formats.map(format => <option key={format}>{format}</option>)}</select></label></div>
-      <div className="instruction-content"><label htmlFor="runbook-content">Instructions</label><textarea id="runbook-content" spellCheck={draft.format !== "yaml"} rows="10" value={draft.content}
-        onChange={e => update({ content: e.target.value })} /></div>
-    </>}
+    {step === 0 && <InstructionFields draft={draft} update={update} />}
     {step === 1 && <ActionFields actions={draft.actions} types={data.types} onChange={actions => update({ actions })} />}
     {step === 2 && <section className="review"><h3>{draft.name}</h3><p>{draft.format}</p>
       {draft.format === "markdown" ? <Markdown skipHtml>{draft.content}</Markdown> : <pre>{draft.content}</pre>}

@@ -1,3 +1,4 @@
+import { newAction, draftFromBook } from "./runbookModel.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { conditionSummary, createGroup, createLeaf, operatorsForType, schemaFromExample, toCondition, toRulePayload, validateDraft } from "./ruleModel.js";
@@ -120,4 +121,23 @@ test("keeps text fragments for scalar contains and validates typed lists", () =>
   assert.match(validateDraft(rule), /true or false/);
   Object.assign(rule.match, { valueType: "integer", value: "1e2" });
   assert.deepEqual(toCondition(rule.match).value, [100]);
+});
+
+test("creates an inline actions-only runbook and keeps named references on switching back", () => {
+  const rule = draft();
+  Object.assign(rule.match.children[0], { path: "service", value: "payments" });
+  rule.runbook = "Existing guide";
+  rule.createRunbook = true;
+  rule.inlineBook = draftFromBook({ name: "Investigate" });
+  const step = newAction({ name: "python", params: [] });
+  assert.equal(step.approval, "required");
+  assert.match(step.code, /def run\(ctx\)/);
+  rule.inlineBook.actions.push(step);
+  assert.equal(validateDraft(rule), null);
+  assert.deepEqual(toRulePayload(rule).runbook, { name: "Investigate", steps: [step] });
+  step.code = "  ";
+  assert.match(validateDraft(rule), /Python script/);
+  rule.createRunbook = false;
+  assert.equal(validateDraft(rule), null);
+  assert.equal(toRulePayload(rule).runbook, "Existing guide");
 });

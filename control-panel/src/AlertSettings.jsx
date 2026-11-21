@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./alert-settings.css";
+import { InlineRunbookFields } from "./RunbookEditor.jsx";
 
 const severities = ["critical", "high", "medium", "low", "info"];
 
@@ -115,11 +116,15 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
     </section>
     <section className="settings-section">
       <div className="settings-heading"><h3>Response</h3><p>Choose guidance associated with this rule.</p></div>
-      <label>Runbook<select value={draft.runbook} onChange={event => update({ runbook: event.target.value })}>
+      {!draft.createRunbook && <label>Runbook<select value={draft.runbook} onChange={event => update({ runbook: event.target.value })}>
         <option value="auto">Use automatic assignment</option><option value="none">No runbook</option>
         {runbooks.filter(item => item.enabled).map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
-      </select><span className="field-help">Attach step-by-step instructions or automated actions shown when this alert fires.</span></label>
-      <p className="field-help">New alerts include the instructions and actions from the assigned runbook.</p>
+      </select><span className="field-help">Attach step-by-step instructions or automated actions shown when this alert fires.</span></label>}
+      <button className="secondary-button" type="button" onClick={() => update({ createRunbook: !draft.createRunbook })}>
+        {draft.createRunbook ? "Choose an existing runbook" : "Create a new runbook"}
+      </button>
+      {draft.createRunbook && <InlineRunbookFields draft={draft.inlineBook}
+        update={fields => update({ inlineBook: { ...draft.inlineBook, ...fields } })} />}
     </section>
     <details className="settings-section advanced-settings"><summary>Noise control &amp; advanced settings</summary>
       <div className="settings-heading"><h3>Deduplication</h3><p>Configure how duplicate events are identified within a time window.</p>
