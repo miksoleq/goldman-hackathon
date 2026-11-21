@@ -1,0 +1,22 @@
+services:
+  postgres:
+    ports: !override []
+
+  redis:
+    ports: !override []
+
+  mailpit:
+    ports: !override []
+
+  sms-mock:
+    ports: !override []
+
+  control:
+    ports: !override
+      - "127.0.0.1:${PERF_CONTROL_PORT:-18082}:8082"
+    environment:
+      NOTIFICATIONS_THROTTLE_LIMIT: ${NOTIFICATIONS_THROTTLE_LIMIT:-100000}
+
+  engine-lb:
+    ports: !override
+      - "127.0.0.1:${PERF_ENGINE_PORT:-18081}:8081"
