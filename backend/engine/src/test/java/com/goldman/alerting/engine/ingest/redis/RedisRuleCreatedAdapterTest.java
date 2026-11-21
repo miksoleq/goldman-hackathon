@@ -14,6 +14,28 @@ class RedisRuleCreatedAdapterTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void invalidNewVersionSkipsOneRuleUntilItIsCorrected() {
+        var manager = new RuleIndexManager(List.of());
+        var adapter = new RedisRuleCreatedAdapter(objectMapper, manager, null, "rules.created.v1");
+        String id = "048f06df-7fb4-4432-8743-87af3277489f";
+        String other = "23ca15f5-1bcb-4883-ad5a-dd25e31ee77a";
+        String first = message(id, true, "payment");
+        String second = first.replace("\"version\":1", "\"version\":2");
+        adapter.accept(first);
+        adapter.accept(message(other, true, "payment"));
+        adapter.accept(second.replace("\"title\":\"Rule\"", "\"title\":\"{{payload | typo}}\""));
+        adapter.accept(first);
+        var event = json("{\"payload\":{\"kind\":\"payment\"}}");
+        assertEquals(List.of(other), manager.match(event).stream().map(rule -> rule.id()).toList());
+        var skipped = adapter.statuses().stream().filter(status -> status.ruleId().equals(id)).findFirst().orElseThrow();
+        assertEquals("skipped", skipped.state());
+        assertEquals(2, skipped.version());
+        assertTrue(skipped.reason().contains("typo"));
+        adapter.accept(first.replace("\"version\":1", "\"version\":3"));
+        assertEquals(2, manager.match(event).size());
+    }
+
+    @Test
     void disablingRemovesOnlyThatRuleAndPreventsStaleReactivation() {
         var manager = new RuleIndexManager(List.of());
         var adapter = new RedisRuleCreatedAdapter(objectMapper, manager, null, "rules.created.v1");

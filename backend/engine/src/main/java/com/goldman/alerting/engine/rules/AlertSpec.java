@@ -22,16 +22,20 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         }
         return new AlertSpec(teams, users, RuleTemplate.compile(definition.path("title").asText(), id, name),
                 RuleTemplate.compile(definition.path("body").asText(""), id, name),
-                RuleTemplate.compile(definition.path("severity").asText("medium"), id, name).andThen(AlertSpec::level), render);
+                RuleTemplate.compile(definition.path("severity").asText("medium"), id, name).andThen(value -> level(value, id)), render);
     }
 
-    private static String level(String value) {
+    private static String level(String value, String ruleId) {
         return switch (value.trim().toLowerCase(Locale.ROOT)) {
             case "debug", "trace", "info" -> "info";
             case "low" -> "low";
             case "high", "error", "err" -> "high";
             case "critical", "crit", "fatal", "emergency" -> "critical";
-            default -> "medium";
+            case "medium", "warn", "warning" -> "medium";
+            default -> {
+                io.micrometer.core.instrument.Metrics.counter("rules.severity.unmapped", "rule", ruleId).increment();
+                yield "medium";
+            }
         };
     }
 }

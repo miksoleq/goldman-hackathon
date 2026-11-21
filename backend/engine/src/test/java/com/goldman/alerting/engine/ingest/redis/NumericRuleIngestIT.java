@@ -66,6 +66,17 @@ class NumericRuleIngestIT {
             Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> rules.snapshot().ruleCount() == 0);
             ingest("1.00000000000000001");
             assertEquals(1L, stream.size(ALERTS));
+            redis.convertAndSend(CHANNEL, message.formatted(id, 3, true).replace("Precise amount", "{{payload | typo}}"));
+            Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+                var status = http.getForObject("/api/engine/snapshot", com.fasterxml.jackson.databind.JsonNode.class).get(0);
+                assertEquals("skipped", status.path("state").asText());
+                assertEquals(3, status.path("version").asInt());
+                org.junit.jupiter.api.Assertions.assertTrue(status.path("reason").asText().contains("typo"));
+            });
+            redis.convertAndSend(CHANNEL, message.formatted(id, 4, true));
+            Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> rules.snapshot().ruleCount() == 1);
+            assertEquals("active", http.getForObject("/api/engine/snapshot", com.fasterxml.jackson.databind.JsonNode.class)
+                    .get(0).path("state").asText());
         } finally {
             redis.delete(List.of(EVENTS, ALERTS));
         }

@@ -32,7 +32,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
 ingest:
   max-payload-bytes: ${INGEST_MAX_PAYLOAD_BYTES:1048576}
