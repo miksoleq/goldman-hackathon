@@ -58,10 +58,15 @@ class RedisRuleCreatedAdapter implements MessageListener, SubscriptionListener {
     synchronized void accept(String json) {
         try {
             var event = RuleCreated.fromTree(mapper.readTree(json));
-            if (!event.enabled() || applied.getOrDefault(event.ruleId(), 0) >= event.version()) return;
-            index.accept(RuleDefinition.fromEvent(event));
+            if (applied.getOrDefault(event.ruleId(), 0) >= event.version()) return;
+            if (event.enabled()) {
+                index.accept(RuleDefinition.fromEvent(event));
+                log.debug("Indexed rule ruleId={} version={}", event.ruleId(), event.version());
+            } else {
+                index.remove(event.ruleId());
+                log.debug("Disabled rule ruleId={} version={}", event.ruleId(), event.version());
+            }
             applied.put(event.ruleId(), event.version());
-            log.debug("Indexed rule ruleId={} version={}", event.ruleId(), event.version());
         } catch (IllegalArgumentException | JsonProcessingException ex) {
             log.warn("Skipping invalid rule creation on {}", channel);
         }

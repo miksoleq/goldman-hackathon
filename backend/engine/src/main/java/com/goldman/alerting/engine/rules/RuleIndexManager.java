@@ -35,6 +35,10 @@ public final class RuleIndexManager {
         current.set(RuleIndex.compile(definitions));
     }
 
+    public void remove(String id) {
+        current.updateAndGet(previous -> previous.withoutRule(id));
+    }
+
     public RuleIndex.MatchResult matchWithDiagnostics(JsonNode event) {
         return current.get().matchWithDiagnostics(event);
     }

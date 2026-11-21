@@ -14,6 +14,30 @@ class RedisRuleCreatedAdapterTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void disablingRemovesOnlyThatRuleAndPreventsStaleReactivation() {
+        var manager = new RuleIndexManager(List.of());
+        var adapter = new RedisRuleCreatedAdapter(objectMapper, manager, null, "rules.created.v1");
+        String id = "048f06df-7fb4-4432-8743-87af3277489f";
+        String other = "23ca15f5-1bcb-4883-ad5a-dd25e31ee77a";
+        var event = json("{\"payload\":{\"kind\":\"payment\"}}");
+        String enabled = message(id, true, "payment");
+        String disabled = message(id, false, "payment").replace("\"version\":1", "\"version\":2");
+        adapter.accept(enabled);
+        adapter.accept(message(other, true, "payment"));
+        var before = manager.snapshot();
+
+        adapter.accept(disabled);
+        adapter.accept(disabled);
+        adapter.accept(enabled);
+        assertEquals(List.of(other), manager.match(event).stream().map(rule -> rule.id()).toList());
+        assertEquals(2, before.match(event).size());
+
+        adapter.accept(enabled.replace("\"version\":1", "\"version\":3"));
+        adapter.accept(disabled);
+        assertEquals(2, manager.match(event).size());
+    }
+
+    @Test
     void acceptsValidRuleAndIgnoresDisabledOrInvalidMessages() {
         RuleIndexManager manager = new RuleIndexManager(List.of());
         RedisRuleCreatedAdapter adapter = new RedisRuleCreatedAdapter(objectMapper, manager, null, "rules.created.v1");

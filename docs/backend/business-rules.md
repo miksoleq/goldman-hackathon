@@ -14,6 +14,8 @@ Document a change in the same commit as the implementation and focused tests. Fo
 
 ### Rule matching uses immutable indexed snapshots
 
+Numeric equality and membership compare exact decimal values. For example, an indexed condition `{path: payload.amount, op: eq, value: 1}` matches the JSON numbers `1` and `1.0`. The JSON string `"1"` remains a separate value. `NumericRuleIngestIT` verifies decimal precision across Redis rule updates, HTTP ingest and alert publication.
+
 - **Expected behavior** - Engine parses the `match` subtree from rule-definition v1 into an immutable condition tree. It evaluates `all`, `any`, and `not`, plus leaf operators `exists`, `eq`, `ne`, `in`, `nin`, numeric comparisons, `contains`, `startsWith`, `endsWith`, and `regex`. `CompiledPath` supports `payload` and `meta` roots, dotted keys, quoted keys, array indexes, and `[*]`. Each rule uses one best equality bucket for `all`, one bucket per indexable `any` branch, or the always-check list; every candidate still runs its full predicate.
 - **Exceptions and boundaries** - Missing paths and JSON `null` produce no resolved values; leaf operators return false when no values resolve, while `exists:false` returns true. Wildcard paths use existential matching. Numeric comparisons accept numbers and strings parseable as `BigDecimal`; equality preserves JSON types and compares numbers numerically. Regex uses RE2/J `find` semantics. A new rule is compiled into a new immutable snapshot through `RuleIndexManager.accept`; the current and old snapshots remain safe for concurrent readers. Engine consumes enabled rule events from `rules.created.v1`; invalid messages are logged and ignored. The Control publisher writes the outbox as part of the creation transaction.
 - **Reason** - Schema-less payloads need flexible conditions, while event evaluation should inspect only likely candidates and remain safe during rule updates.
@@ -33,7 +35,7 @@ A valid editor document creates the rule, user and team links, version 1, audit 
 ### Rule-created Redis contract
 
 - **Expected behavior** - Control publishes each created rule to `rules.created.v1`, using Redis Pub/Sub with the latest envelope per rule id in the companion hash. The JSON value contains `type`, `ruleId`, `version`, `configVersion`, `name`, `enabled`, `priority`, `teamIds`, `userIds`, `runbookId`, and `definition`. `definition` is the normalized v1 JSON document from the rule-definition schema. Engine uses `ruleId`, `enabled`, and `definition` to build matching buckets. Engine includes the configured recipients in each matched alert on `alerts.live`.
-- **Exceptions and boundaries** - Disabled rules are not added to the active index. Duplicates and older versions are ignored. Invalid events do not alter the current snapshot. Control's outbox may deliver a record more than once, so consumers must be idempotent by rule id and version.
+- **Exceptions and boundaries** - A newer disabled version removes the rule from the active index. Engine remembers that version even when the rule was already absent. Duplicates and older versions are ignored. Only a newer enabled version can reactivate the rule. Invalid events do not alter the current snapshot.
 - **Reason** - The v1 definition schema excludes database identity and enabled state; those fields are supplied by Control in the event envelope.
 - **Verification** - `RedisRuleCreatedAdapterTest` covers accepted, disabled, and malformed events. `RedisRuleCreatedAdapterIT` verifies the real Redis listener against Redis.
 

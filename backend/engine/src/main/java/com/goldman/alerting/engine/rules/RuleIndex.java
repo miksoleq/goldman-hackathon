@@ -119,6 +119,14 @@ public final class RuleIndex {
         );
     }
 
+    public RuleIndex withoutRule(String id) {
+        int ordinal = findOrdinal(id);
+        if (ordinal < 0) return this;
+        var remaining = new ArrayList<>(definitions);
+        remaining.remove(ordinal);
+        return compile(remaining);
+    }
+
     /** Returns the full matches and how many unique rules were evaluated. */
     public MatchResult matchWithDiagnostics(JsonNode event) {
         BitSet candidates = new BitSet(rulesByOrdinal.length);
@@ -651,8 +659,12 @@ public final class RuleIndex {
     }
 
     private static String indexKey(JsonNode value, boolean ignoreCase) {
-        if (ignoreCase && value.isTextual()) {
-            return IGNORE_CASE_KEY_PREFIX + value.textValue().toLowerCase(java.util.Locale.ROOT);
+        if (value.isNumber()) {
+            return "number:" + value.decimalValue().stripTrailingZeros().toString();
+        }
+        if (value.isTextual()) {
+            return ignoreCase ? IGNORE_CASE_KEY_PREFIX + value.textValue().toLowerCase(java.util.Locale.ROOT)
+                    : "text:" + value.textValue();
         }
         return value.asText();
     }
@@ -662,13 +674,13 @@ public final class RuleIndex {
             if (leaf.operator() == Condition.Operator.EQ) {
                 JsonNode value = leaf.value();
                 if (value.isValueNode()) {
-                    values.computeIfAbsent(leaf.path(), ignored -> new HashSet<>()).add(value.asText());
+                    values.computeIfAbsent(leaf.path(), ignored -> new HashSet<>()).add(indexKey(value, leaf.ignoreCase()));
                 }
             } else if (leaf.operator() == Condition.Operator.IN) {
                 JsonNode array = leaf.value();
                 for (JsonNode value : array) {
                     if (value.isValueNode()) {
-                        values.computeIfAbsent(leaf.path(), ignored -> new HashSet<>()).add(value.asText());
+                        values.computeIfAbsent(leaf.path(), ignored -> new HashSet<>()).add(indexKey(value, leaf.ignoreCase()));
                     }
                 }
             }
@@ -740,11 +752,9 @@ public final class RuleIndex {
             if (!value.isValueNode()) {
                 return;
             }
-            addCandidates(currentValues.get(value.asText()));
+            addCandidates(currentValues.get(indexKey(value, false)));
             if (hasIgnoreCaseValues && value.isTextual()) {
-                String insensitiveKey = IGNORE_CASE_KEY_PREFIX
-                        + value.textValue().toLowerCase(java.util.Locale.ROOT);
-                addCandidates(currentValues.get(insensitiveKey));
+                addCandidates(currentValues.get(indexKey(value, true)));
             }
         }
 

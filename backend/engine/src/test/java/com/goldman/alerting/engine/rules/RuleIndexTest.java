@@ -20,6 +20,20 @@ class RuleIndexTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void indexesEqualNumbersAcrossScalesForEqualityAndMembership() throws Exception {
+        var index = RuleIndex.compile(List.of(
+                rule("equal", Condition.eq("payload.amount", json("10"))),
+                rule("member", Condition.in("payload.amount", List.of(json("10.0"), json("20")))),
+                rule("text", Condition.eq("payload.amount", "10"))));
+
+        for (String number : List.of("10", "10.00", "1e1")) {
+            var event = json("{\"payload\":{\"amount\":" + number + "}}");
+            assertEquals(List.of("equal", "member"), ids(index.match(event)));
+        }
+        assertEquals(List.of("text"), ids(index.match(json("{\"payload\":{\"amount\":\"10\"}}"))));
+    }
+
+    @Test
     void indexesOneEqualityForAllAndStillChecksEveryOtherCondition() throws Exception {
         RuleIndex index = RuleIndex.compile(List.of(rule(
                 "large-payment",

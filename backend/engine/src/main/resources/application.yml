@@ -2,6 +2,12 @@ server:
   port: ${SERVER_PORT:8081}
 
 spring:
+  jackson:
+    deserialization:
+      use-big-decimal-for-floats: true
+    datatype:
+      json-node:
+        strip-trailing-bigdecimal-zeroes: false
   application:
     name: engine
   threads:
