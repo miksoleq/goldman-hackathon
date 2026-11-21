@@ -83,6 +83,33 @@ class AlertGroupingIT {
         }
     }
 
+    @Test void brokerRedeliveryDoesNotDuplicateTheEventOrIncrementAlertCount() throws Exception {
+        String prefix = "it:idempotency:" + UUID.randomUUID();
+        String events = prefix + ":events";
+        String alerts = prefix + ":alerts";
+        var rule = rule("retry", 10, false);
+        var sender = new RedisStreamPublisher(redis, json, events, alerts, 3600);
+        var firstReplica = new IngestionService(json, sender, new RuleIndexManager(List.of(rule)), 4096);
+        var secondReplica = new IngestionService(json, sender, new RuleIndexManager(List.of(rule)), 4096);
+        var sourceRecord = new com.goldman.alerting.engine.ingest.IngestPublisher.KafkaRecord("engine", "external", 0, 12);
+        try {
+            firstReplica.accept("demo", "kafka", "{\"amount\":1}", sourceRecord);
+            secondReplica.accept("demo", "kafka", "{\"amount\":1}", sourceRecord);
+
+            var stream = redis.<String, String>opsForStream();
+            var eventRecords = stream.range(events, Range.unbounded());
+            var alertRecords = stream.range(alerts, Range.unbounded());
+            assertEquals(1, eventRecords.size());
+            assertEquals(1, alertRecords.size());
+            JsonNode alert = json.readTree(alertRecords.getFirst().getValue().get("alert"));
+            assertEquals("alert.created", alert.path("type").asText());
+            assertEquals(1, alert.path("count").asInt());
+        } finally {
+            var ownedKeys = redis.keys(prefix + ":*");
+            if (ownedKeys != null && !ownedKeys.isEmpty()) redis.delete(ownedKeys);
+        }
+    }
+
     private RuleDefinition rule(String name, int priority, boolean stop) throws Exception {
         String id = UUID.randomUUID().toString();
         var definition = json.readTree("""

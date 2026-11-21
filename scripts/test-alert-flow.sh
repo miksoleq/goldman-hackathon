@@ -5,7 +5,7 @@ command -v jq >/dev/null || { echo 'Test wymaga jq.' >&2; exit 1; }
 env_file=.env
 [[ -f "$env_file" ]] || env_file=.env.example
 compose=(docker compose --env-file "$env_file" -f docker-compose.yml -f scripts/alert-smoke.compose.yml)
-"${compose[@]}" up --build -d postgres redis engine control workflow-demo
+"${compose[@]}" up --build -d postgres redis engine engine-lb control workflow-demo
 
 wait_for_log() {
   local service=$1 needle=$2 line
