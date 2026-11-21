@@ -171,5 +171,3 @@ function validateNode(node, depth = 1, exceedsCount = () => false) {
   }
   return null;
 }
-
-\n

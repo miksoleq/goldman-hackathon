@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { conditionSummary, createGroup, createLeaf, operatorsForType, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
 import { createRule } from "./api.js";
+import AlertSettings from "./AlertSettings.jsx";
 
 const INITIAL_DRAFT = () => ({
   name: "", enabled: true, priority: 100, match: createGroup(), teams: "", users: "",
@@ -153,36 +154,17 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
       <ConditionEditor node={draft.match} onChange={match => update({ match })} />
       <p className="form-hint">Event data comes from the submitted JSON. Ingestion metadata is added by Engine and includes source, adapter, event ID, receive time, and content type.</p>
     </>}
-    {step === 1 && <div className="form-grid">
-      <label>Teams <span className="hint-inline">Enter exact Control team names, separated by commas</span>
-        <input value={draft.teams} onChange={event => update({ teams: event.target.value })} placeholder="Market Risk" /></label>
-      <label>Users <span className="hint-inline">Enter exact Control usernames, separated by commas</span>
-        <input value={draft.users} onChange={event => update({ users: event.target.value })} placeholder="analyst" /></label>
-      <label>Severity<select value={draft.severity} onChange={event => update({ severity: event.target.value })}>
-        {["low", "medium", "high", "critical"].map(value => <option key={value}>{value}</option>)}</select></label>
-      <label>Alert title<input maxLength="500" value={draft.title} onChange={event => update({ title: event.target.value })} placeholder={draft.name || "Defaults to the rule name"} /></label>
-      <label className="span-all">Alert message<input maxLength="5000" value={draft.body} onChange={event => update({ body: event.target.value })} placeholder="Optional. Use {{payload.field}} to include event values." /></label>
-      <label>Runbook<select value={draft.runbook} onChange={event => update({ runbook: event.target.value })}>
-        <option value="auto">Use automatic assignment</option><option value="none">No runbook</option>
-        {runbooks.filter(item => item.enabled).map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
-      </select></label>
-      <label>Priority<input type="number" min="-2147483648" max="2147483647" step="1" value={draft.priority} onChange={event => update({ priority: event.target.value })} /></label>
-      <label>Deduplication window (seconds)<input type="number" min="1" max="86400" step="1" value={draft.windowSec} onChange={event => update({ windowSec: event.target.value })} /></label>
-      <label>Deduplication fields <span className="hint-inline">Comma separated, optional</span>
-        <input value={draft.dedupKeys} onChange={event => update({ dedupKeys: event.target.value })} placeholder="payload.transactionId" /></label>
-      <label className="inline-check span-all"><input type="checkbox" checked={draft.enabled} onChange={event => update({ enabled: event.target.checked })} /> Enable this rule after creation</label>
-      <label className="inline-check span-all"><input type="checkbox" checked={draft.stopProcessing} onChange={event => update({ stopProcessing: event.target.checked })} /> Stop processing lower-priority rules after a match</label>
-    </div>}
+    {step === 1 && <AlertSettings draft={draft} update={update} runbooks={runbooks} showRecipientError={error === "Add at least one team or user recipient."} />}
     {step === 2 && <div className="review">
       <h3>{draft.name}</h3>
       <p>{draft.enabled ? "Enabled immediately" : "Saved disabled"} · Priority {draft.priority} · {draft.severity} severity</p>
       <p>Recipients: {[...draft.teams.split(","), ...draft.users.split(",")].map(item => item.trim()).filter(Boolean).join(", ") || "None"}</p>
       <p>Runbook: {draft.runbook}</p>
       <p>Match logic · <strong>{conditionSummary(draft.match)}</strong></p>
-      <p>Deduplicate identical alerts for {draft.windowSec} seconds{draft.dedupKeys.trim() ? " using " + draft.dedupKeys : ""}.</p>
-      {draft.stopProcessing && <p>Stop evaluating lower-priority rules after this match.</p>}
+      <p>Deduplication settings: {draft.windowSec} seconds{draft.dedupKeys.trim() ? ", fields " + draft.dedupKeys : ""}. Engine does not yet group alerts.</p>
+      {draft.stopProcessing && <p>Stop processing is configured. Engine does not yet stop rule evaluation.</p>}
     </div>}
-    {error && <div className="error-banner" role="alert">{error}</div>}
+    {error && !(step === 1 && error === "Add at least one team or user recipient.") && <div className="error-banner" role="alert">{error}</div>}
     <div className="builder-actions">
       {step > 0 && <button className="secondary-button" type="button" onClick={() => setStep(step - 1)}>Back</button>}
       <button className="primary-button" type="submit" disabled={saving}>{saving ? "Creating…" : step === 2 ? "Create rule" : "Continue"}</button>
