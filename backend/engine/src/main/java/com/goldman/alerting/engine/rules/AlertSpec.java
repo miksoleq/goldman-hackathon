@@ -7,7 +7,7 @@ import java.util.function.Function;
 
 /** Alert routing and rendering belong to the same snapshot as the predicate. */
 public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,String> title,
-                        Function<JsonNode,String> body, Function<JsonNode,String> severity, Function<JsonNode,Runbook> runbook, boolean autoRunbook) {
+                        Function<JsonNode,String> body, Function<JsonNode,String> severity, Function<JsonNode,Runbook> runbook, boolean autoRunbook, List<String> channels) {
     public AlertSpec {
         teams = List.copyOf(teams);
         users = List.copyOf(users);
@@ -22,7 +22,8 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         return new AlertSpec(teams, users, RuleTemplate.compile(definition.path("title").asText(), id, name),
                 RuleTemplate.compile(definition.path("body").asText(""), id, name),
                 RuleTemplate.compile(definition.path("severity").asText("medium"), id, name).andThen(value -> level(value, id)), render,
-                pinnedId == null && book == null && "auto".equals(definition.path("runbookMode").asText("auto")));
+                pinnedId == null && book == null && "auto".equals(definition.path("runbookMode").asText("auto")),
+                definition.has("channels") ? definition.get("channels").valueStream().map(JsonNode::textValue).toList() : null);
     }
 
     private static String level(String value, String ruleId) {

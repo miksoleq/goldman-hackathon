@@ -17,6 +17,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 class DeliveryQueueIT {
     @Autowired DSLContext db;
     @Autowired DeliveryQueue queue;
+    @Autowired NotificationRouting routing;
+    @Autowired NotificationPreferences preferences;
     final UUID user = UUID.randomUUID();
     final UUID alert = UUID.randomUUID();
 
@@ -27,6 +29,18 @@ class DeliveryQueueIT {
     @AfterEach void cleanup() {
         db.deleteFrom(LIVE_ALERT_INBOX).where(LIVE_ALERT_INBOX.ALERT_ID.eq(alert)).execute();
         db.deleteFrom(USERS).where(USERS.ID.eq(user)).execute();
+    }
+
+    @Test void routesOnlySelectedChannelsAcceptedByRecipient() {
+        preferences.replace(user, null, Map.of("sms", new DeliveryPolicy.Setting(true, Severity.info),
+                "email", new DeliveryPolicy.Setting(false, Severity.info)));
+        preferences.setContact(user, "sms", "+12025550123");
+        routing.route(new com.goldman.alerting.contracts.LiveAlert(1, "alert.created", alert, "event", UUID.randomUUID(),
+                List.of(), List.of(user), "high", "Title", "Body", 1, java.time.Instant.now(), null, null,
+                null, List.of("sms", "email")));
+        var d = NOTIFICATION_DELIVERIES;
+        assertThat(db.select(d.CHANNEL_TYPE).from(d).where(d.ALERT_ID.eq(alert)).fetch(d.CHANNEL_TYPE))
+                .containsExactly("sms");
     }
 
     @Test void concurrentWorkersClaimDistinctJobsAndExpiredTokenCannotComplete() throws Exception {

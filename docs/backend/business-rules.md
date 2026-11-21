@@ -101,3 +101,7 @@ Any signed-in user can read a full definition with `GET /api/runbooks/{id}` and 
 ### Outbound alert delivery
 
 Control records one delivery per new alert, recipient and enabled channel. Personal preferences override team settings. Email and SMS require opt-in and a matching severity. Missing contact details produce a skipped delivery. Control snapshots the address and body before sending, and retries transient provider errors up to five times. The default quota is ten deliveries per recipient and channel per five minutes. SMS retries reuse the delivery UUID. SMTP acceptance confirms receipt by the relay. See DeliveryQueueIT, DeliveryPolicyTest and scripts/test-notification-flow.py.
+
+### Per-rule notification channels
+
+A rule definition may include a nonempty, unique `channels` array containing `sms`, `email` or `ui`. Engine copies the selection into each new live alert. Control delivers through selected, enabled channels subject to the existing recipient preferences, severity thresholds and transport rules. Omitting the field preserves existing routing for older rules and pending alerts.

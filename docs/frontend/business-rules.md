@@ -36,3 +36,7 @@ The Response section can attach an existing runbook or create one in the same ru
 ### Live alert delivery in open browser views
 
 Control Panel and Event Monitor subscribe to the monitor SSE feed so their alert lists update as snapshots arrive. Both also subscribe to the signed-in recipient’s notification feed. A new UI delivery raises a dismissible notice even outside the Alerts view. The initial personal inbox is a baseline and does not raise historical notices. The browser reconciles the inbox again when the stream reconnects.
+
+### Notification channels in the rule wizard
+
+Configure the alert offers SMS, Email and UI next to the recipients. A new draft starts with UI selected. Choose one or more channels and check the selection in Review before saving.

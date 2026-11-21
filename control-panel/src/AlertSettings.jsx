@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./alert-settings.css";
+import { CHANNEL_LABELS } from "./ruleModel.js";
 import { InlineRunbookFields } from "./RunbookEditor.jsx";
 
 const severities = ["critical", "high", "medium", "low", "info"];
@@ -93,6 +94,15 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
         <RecipientPicker label="Teams" endpoint="/api/teams" value={draft.teams} onChange={teams => update({ teams })} onBlur={() => setTouched(true)} />
         <RecipientPicker label="Users" endpoint="/api/users" value={draft.users} onChange={users => update({ users })} onBlur={() => setTouched(true)} />
       </div>
+      <fieldset className="notification-channels">
+        <legend>Notification channels</legend>
+        <div>{Object.entries(CHANNEL_LABELS).map(([id, label]) =>
+          <label className="inline-check" key={id}><input type="checkbox" checked={draft.channels.includes(id)}
+            onChange={event => update({ channels: event.target.checked
+              ? [...draft.channels, id] : draft.channels.filter(value => value !== id) })} />{label}</label>
+        )}</div>
+        <p className="field-help">Delivery follows recipient and team notification preferences.</p>
+      </fieldset>
       {missing && (touched || showRecipientError) && <p className="field-error" role="alert">Add at least one team or user recipient.</p>}
     </section>
     <section className="settings-section">

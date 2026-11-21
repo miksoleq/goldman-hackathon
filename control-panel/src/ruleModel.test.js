@@ -6,7 +6,7 @@ import { conditionSummary, createGroup, createLeaf, operatorsForType, schemaFrom
 function draft() {
   return {
     name: "Risk rule", enabled: true, priority: 100, match: createGroup(), teams: "Market Risk", users: "",
-    severity: "high", title: "", body: "", runbook: "auto", dedupKeys: "", windowSec: 60, stopProcessing: false
+    channels: ["ui"], severity: "high", title: "", body: "", runbook: "auto", dedupKeys: "", windowSec: 60, stopProcessing: false
   };
 }
 
@@ -60,12 +60,14 @@ test("builds creation payload with teams, users, runbook, and alert options", ()
   rule.teams = " Market Risk, Operations ";
   rule.users = " analyst ";
   rule.runbook = "Settlement guide";
+  rule.channels = ["email", "sms"];
   rule.body = "Review transaction";
   rule.dedupKeys = "payload.tradeId, meta.source";
   rule.match.children[0].path = "tradeId";
   const payload = toRulePayload(rule);
 
   assert.deepEqual(payload.route, { teams: ["Market Risk", "Operations"], users: ["analyst"] });
+  assert.deepEqual(payload.channels, ["email", "sms"]);
   assert.equal(payload.runbook, "Settlement guide");
   assert.deepEqual(payload.dedup.keys, ["payload.tradeId", "meta.source"]);
   assert.equal(payload.title, "Risk rule");
@@ -77,6 +79,10 @@ test("validates required recipients, condition values, and deduplication bounds"
   rule.match.children[0].path = "amount";
   rule.match.children[0].value = "100";
   assert.equal(validateDraft(rule), null);
+  rule.channels = [];
+  assert.match(validateDraft(rule), /notification channel/);
+  assert.equal(validateDraft(rule, "trigger"), null);
+  rule.channels = ["sms"];
   rule.windowSec = 86401;
   assert.match(validateDraft(rule), /Deduplication window/);
   rule.windowSec = 60;

@@ -88,6 +88,7 @@ class RuleControlRedisIT {
                 enabled: true
                 priority: 10
                 match: {path: payload, op: jsonSchema, value: {type: object, required: [kind], properties: {kind: {type: string}}}}
+                channels: [sms, email]
                 title: Payment failed
                 route: {teams: [%s]}
                 runbook:
@@ -103,7 +104,8 @@ class RuleControlRedisIT {
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
 
         for (String invalid : java.util.List.of(yaml.replace("check_workflow_status", "unknown-type"),
-                yaml.replace("workflowId:", "wrongParameter:"))) {
+                yaml.replace("[sms, email]", "[]"), yaml.replace("[sms, email]", "[push]"),
+                yaml.replace("[sms, email]", "[sms, sms]"), yaml.replace("workflowId:", "wrongParameter:"))) {
             assertThat(http.postForEntity("/api/rules", new HttpEntity<>(invalid, headers), JsonNode.class)
                     .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
@@ -132,6 +134,7 @@ class RuleControlRedisIT {
         assertThat(event.path("ruleId").asText()).isEqualTo(ruleId);
         assertThat(event.path("enabled").asBoolean()).isTrue();
         assertThat(event.path("priority").asInt()).isEqualTo(10);
+        assertThat(event.at("/definition/channels").valueStream().map(JsonNode::textValue)).containsExactly("sms", "email");
         assertThat(event.path("definition").path("v").asInt()).isEqualTo(1);
         assertThat(event.path("definition").at("/match/value/properties/kind/type").asText()).isEqualTo("string");
         assertThat(event.path("teamIds").get(0).asText()).isEqualTo(teamId.toString());

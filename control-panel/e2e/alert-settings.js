@@ -7,7 +7,7 @@ async page => {
   if (await login.isVisible()) {
     await login.click();
     await page.getByRole("button", { name: "Demo Member" }).click();
-    await page.getByText("demo.member", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Log out", exact: true }).waitFor();
   }
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Rule name").fill("Alert test");
@@ -23,6 +23,11 @@ async page => {
   await page.getByRole("button", { name: "Market Risk", exact: true }).click();
   await page.getByRole("combobox", { name: "Users" }).fill("analyst");
   await page.getByRole("button", { name: "analyst", exact: true }).click();
+  await page.getByRole("checkbox", { name: "UI", exact: true }).uncheck();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("alert").filter({ hasText: "Select at least one notification channel" }).waitFor();
+  await page.getByLabel("SMS", { exact: true }).check();
+  await page.getByLabel("Email", { exact: true }).check();
   await page.getByLabel("Alert message").fill("Service ");
   await page.getByRole("button", { name: "{{payload.service}}" }).click();
   if (!(await page.getByLabel("Alert message").inputValue()).includes("{{payload.service}}")) throw Error("Variable insertion failed");
@@ -30,6 +35,7 @@ async page => {
   await page.getByLabel("Deduplication fields").fill("payload.service");
   await page.getByLabel("Deduplication fields").press("Enter");
   await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByText("Notification channels: SMS, Email").waitFor();
   let payload;
   await page.route("**/api/rules", async route => {
     payload = route.request().postDataJSON();
@@ -37,6 +43,7 @@ async page => {
   });
   await page.getByRole("button", { name: "Create rule", exact: true }).click();
   await page.getByText("Rule created and saved in Control.").waitFor();
+  if (JSON.stringify(payload.channels) !== JSON.stringify(["sms", "email"])) throw Error("Incorrect notification channels");
   if (payload.route.teams[0] !== "Market Risk" || payload.route.users[0] !== "analyst" || payload.dedup.keys[0] !== "payload.service") throw Error("Incorrect API payload");
   return "Recipients, template insertion, deduplication and payload verified";
 }

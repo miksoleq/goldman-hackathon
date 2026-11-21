@@ -49,7 +49,8 @@ public class NotificationRouting {
         // Serialize quota decisions for the same recipient and lock overlapping routes in a stable order.
         var users = db.selectFrom(USERS).where(USERS.ID.in(recipients.keySet())).orderBy(USERS.ID).forUpdate().fetch();
         var settings = preferences.forRoute(recipients.keySet(), alert.teamIds());
-        var enabled = catalog.enabled();
+        var enabled = catalog.enabled().stream()
+                .filter(channel -> alert.channels() == null || alert.channels().contains(channel.name())).toList();
         var severity = Severity.valueOf(alert.severity());
         String link = linkBase + "/api/alerts/" + alert.alertId();
         for (var user : users) {

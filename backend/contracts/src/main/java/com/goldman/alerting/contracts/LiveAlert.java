@@ -9,7 +9,16 @@ public record LiveAlert(int v, String type, UUID alertId, String eventId, UUID r
                         List<UUID> teamIds, List<UUID> userIds, String severity,
                         String title, String body, int count, Instant occurredAt, UUID runbookId, Runbook runbook,
                         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-                        JsonNode event) {
+                        JsonNode event,
+                        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                        List<String> channels) {
+    public LiveAlert(int v, String type, UUID alertId, String eventId, UUID ruleId, List<UUID> teamIds,
+                     List<UUID> userIds, String severity, String title, String body, int count, Instant occurredAt,
+                     UUID runbookId, Runbook runbook, JsonNode event) {
+        this(v, type, alertId, eventId, ruleId, teamIds, userIds, severity, title, body, count, occurredAt,
+                runbookId, runbook, event, null);
+    }
+
     public LiveAlert(int v, String type, UUID alertId, String eventId, UUID ruleId, List<UUID> teamIds,
                      List<UUID> userIds, String severity, String title, String body, int count, Instant occurredAt,
                      UUID runbookId, Runbook runbook) {
@@ -21,6 +30,7 @@ public record LiveAlert(int v, String type, UUID alertId, String eventId, UUID r
     public static final UUID UNASSIGNED_RUNBOOK = new UUID(0, 0);
     public LiveAlert {
         teamIds = List.copyOf(teamIds);
+        channels = channels == null ? null : List.copyOf(channels);
         userIds = List.copyOf(userIds);
     }
 }

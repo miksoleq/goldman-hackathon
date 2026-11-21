@@ -1,4 +1,6 @@
 import { actionError, instructionError, bookResource } from "./runbookModel.js";
+export const CHANNEL_LABELS = { sms: "SMS", email: "Email", ui: "UI" };
+
 export const OPERATORS = [
   ["exists", "Field is present", "boolean"],
   ["eq", "Is equal to", "typed"],
@@ -110,6 +112,7 @@ export function toRulePayload(draft) {
     enabled: draft.enabled,
     priority: Number(draft.priority),
     route: { teams, users },
+    channels: draft.channels,
     v: 1,
     match: toCondition(draft.match),
     severity: draft.severity,
@@ -128,6 +131,7 @@ export function toRulePayload(draft) {
 export function validateDraft(draft, step = "all") {
   if (!draft.name.trim()) return "Enter a rule name.";
   if (step !== "trigger" && !draft.teams.trim() && !draft.users.trim()) return "Add at least one team or user recipient.";
+  if (step !== "trigger" && !draft.channels.length) return "Select at least one notification channel.";
   if (step !== "trigger" && draft.createRunbook) {
     const error = instructionError(draft.inlineBook) || actionError(draft.inlineBook.actions);
     if (error) return error;

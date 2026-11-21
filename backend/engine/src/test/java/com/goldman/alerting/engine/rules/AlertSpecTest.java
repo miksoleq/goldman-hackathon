@@ -34,6 +34,7 @@ class AlertSpecTest {
         var mapper = new ObjectMapper();
         var spec = AlertSpec.compile("id", "Timeout", List.of(), List.of(), mapper.readTree("""
                 {"title":"{{rule.name}} w {{payload.service | lower}}",
+                 "channels":["email","sms"],
                  "body":"Workflow {{payload.workflow}}: {{payload.reason | default: timeout}}",
                  "severity":"{{payload.level}}"}
                 """), new com.goldman.alerting.contracts.Runbook(java.util.UUID.randomUUID(), "steps", "text",
@@ -41,6 +42,7 @@ class AlertSpecTest {
         var event = mapper.readTree("""
                 {"payload":{"workflow":"WF-42","service":"PAYMENTS","level":"ERROR"}}
                 """);
+        assertEquals(List.of("email", "sms"), spec.channels());
         assertEquals("Timeout w payments", spec.title().apply(event));
         assertEquals("Workflow WF-42: timeout", spec.body().apply(event));
         assertEquals("Check WF-42: timeout", spec.runbook().apply(event).content());

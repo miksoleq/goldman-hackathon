@@ -34,3 +34,7 @@
 .advanced-settings summary { color: var(--navy); font-size: 15px; font-weight: 600; cursor: pointer; }
 .advanced-settings[open] summary { margin-bottom: 16px; }
 @media (max-width: 600px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } .settings-grid .span-all { grid-column: auto; } }
+
+.notification-channels { margin: 16px 0 0; padding: 0; border: 0; }
+.notification-channels legend { font-weight: 600; }
+.notification-channels > div { display: flex; flex-wrap: wrap; gap: 20px; }

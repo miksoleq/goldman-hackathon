@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { conditionSummary, createGroup, createLeaf, operatorsForType, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
+import { CHANNEL_LABELS, conditionSummary, createGroup, createLeaf, operatorsForType, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
 import { createRule } from "./api.js";
 import YamlRuleEditor from "./YamlRuleEditor.jsx";
 import { draftFromBook } from "./runbookModel.js";
@@ -7,7 +7,7 @@ import AlertSettings from "./AlertSettings.jsx";
 
 const INITIAL_DRAFT = () => ({
   name: "", enabled: true, priority: 100, match: createGroup(), teams: "", users: "",
-  severity: "medium", title: "", body: "", runbook: "auto", dedupKeys: "", windowSec: 60,
+  channels: ["ui"], severity: "medium", title: "", body: "", runbook: "auto", dedupKeys: "", windowSec: 60,
   createRunbook: false, inlineBook: draftFromBook(null), stopProcessing: false
 });
 
@@ -163,6 +163,7 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
       <h3>{draft.name}</h3>
       <p>{draft.enabled ? "Enabled immediately" : "Saved disabled"} · Priority {draft.priority} · {draft.severity} severity</p>
       <p>Recipients: {[...draft.teams.split(","), ...draft.users.split(",")].map(item => item.trim()).filter(Boolean).join(", ") || "None"}</p>
+      <p>Notification channels: {draft.channels.map(id => CHANNEL_LABELS[id]).join(", ")}</p>
       <p>Runbook: {draft.createRunbook ? draft.inlineBook.name : draft.runbook}</p>
       {draft.createRunbook && <ol>{draft.inlineBook.actions.map((action, i) => <li key={i}>{action.type === "python" ? "Python Script" : action.type}</li>)}</ol>}
       <p>Match logic · <strong>{conditionSummary(draft.match)}</strong></p>
