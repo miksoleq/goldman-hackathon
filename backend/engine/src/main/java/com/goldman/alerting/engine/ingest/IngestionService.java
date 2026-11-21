@@ -1,7 +1,9 @@
 package com.goldman.alerting.engine.ingest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 public class IngestionService {
 
     private final ObjectMapper objectMapper;
+    private final ObjectReader jsonReader;
     private final IngestPublisher publisher;
     private final int maxPayloadBytes;
     private final RuleIndexManager rules;
@@ -28,6 +31,7 @@ public class IngestionService {
             @Value("${ingest.max-payload-bytes:1048576}") int maxPayloadBytes
     ) {
         this.objectMapper = objectMapper;
+        this.jsonReader = objectMapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         this.publisher = publisher;
         this.rules = rules;
         if (maxPayloadBytes < 1) {
@@ -40,12 +44,10 @@ public class IngestionService {
         if (rawJson == null) {
             throw new InvalidJsonException();
         }
-        if (rawJson.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
-            throw new PayloadTooLargeException(maxPayloadBytes);
-        }
+        checkSize(rawJson);
         try {
-            JsonNode payload = objectMapper.readTree(rawJson);
-            if (payload == null) {
+            JsonNode payload = jsonReader.readTree(rawJson);
+            if (payload == null || payload.isMissingNode()) {
                 throw new InvalidJsonException();
             }
             return accept(source, adapter, payload);
@@ -55,12 +57,27 @@ public class IngestionService {
     }
 
     public MessageEnvelope accept(String source, String adapter, JsonNode payload) {
+        return publish(source, adapter, "json", payload);
+    }
+
+    public MessageEnvelope acceptText(String source, String adapter, String message) {
+        checkSize(message);
+        return publish(source, adapter, "text", objectMapper.createObjectNode().put("message", message));
+    }
+
+    private void checkSize(String input) {
+        if (input.getBytes(StandardCharsets.UTF_8).length > maxPayloadBytes) {
+            throw new PayloadTooLargeException(maxPayloadBytes);
+        }
+    }
+
+    private MessageEnvelope publish(String source, String adapter, String contentType, JsonNode payload) {
         String eventId = UUID.randomUUID().toString();
         long receivedAt = System.currentTimeMillis();
         var event = objectMapper.createObjectNode();
         event.set("payload", payload);
         event.putObject("meta").put("source", source).put("adapter", adapter)
-                .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", "json");
+                .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", contentType);
         var matches = rules.match(event);
         var alerts = new ArrayList<IngestPublisher.MatchedAlert>();
         for (Rule rule : matches) {
@@ -79,7 +96,7 @@ public class IngestionService {
                 source,
                 adapter,
                 receivedAt,
-                "json",
+                contentType,
                 payload,
                 matches.stream().map(Rule::id).toList()
         );

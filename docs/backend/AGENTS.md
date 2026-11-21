@@ -37,3 +37,7 @@ Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the 
 ### Regenerate the control jOOQ model
 
 Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. From `backend/`, run `mvn -pl contracts -am install` to make the shared JAR available to the generator. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.
+
+### Text ingest and OOM acceptance
+
+Use JDK 21, Maven, Python 3 and Docker. From `backend/`, run `mvn -B verify` with `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `REDIS_PORT` and `SPRING_DATA_REDIS_PORT` pointing at disposable PostgreSQL 17 and Redis 7.4 instances. From the repository root, run `python3 scripts/test-oom-ingest.py`. The script starts the packaged Control and Engine on ephemeral HTTP ports, provisions its own PostgreSQL and Redis on loopback ports, and removes them after checking the alert detail API.

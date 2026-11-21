@@ -102,8 +102,8 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             if (rawPayload == null) {
                 throw new IllegalArgumentException("Missing payload field");
             }
-            String source = stringField(fields.get("source"), "redis-external");
-            ingestionService.accept(source, "redis", rawPayload.toString());
+            String source = stringField(fields.get("source"), externalStream);
+            ingestionService.accept(source, "redis-stream", rawPayload);
             streams.acknowledge(externalStream, consumerGroup, record.getId());
         } catch (RuntimeException exception) {
             if (rawPayload == null || exception instanceof InvalidJsonException
