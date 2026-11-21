@@ -15,7 +15,28 @@ services:
       timeout: 2s
       retries: 30
 
+  script-runner:
+    build: ./script-runner
+    networks: [script-isolation]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    user: nobody
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: "0.5"
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 32
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2).close()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   control:
+    networks: [default, script-isolation]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -30,6 +51,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-alerting}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     depends_on:
+      script-runner:
+        condition: service_healthy
       redis:
         condition: service_healthy
       postgres:
@@ -130,6 +153,10 @@ services:
       postgres:
         condition: service_healthy
     command: ["mvn", "-B", "-pl", "control,engine", "-am", "clean", "verify"]
+
+networks:
+  script-isolation:
+    internal: true
 
 volumes:
   redis_data:

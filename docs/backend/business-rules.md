@@ -85,3 +85,7 @@ Each worker claims a step in PostgreSQL, then executes under a row lock. An expi
 ### Identity, memberships and rule owners
 
 Control validates demo credentials with bcrypt and binds the user UUID to an HTTP-only server session. Each protected request resolves the current database role. Both roles can create rules, and the rule, owner ID, version and outbox record commit together. Missing sessions return 401. A MEMBER can read the team directory. A TEAM_LEADER sees and manages the team identified by their unique lead membership. Ordinary memberships grant no management rights. The membership API preserves database-assigned lead memberships. Duplicate assignments and removals are idempotent. Rule list, detail and creation responses expose the owner's ID and username. Legacy rules display System. AccountsTest and AccountPermissionsIT cover the roles, session lifecycle and HTTP boundaries.
+
+### Python diagnostics in runbooks
+
+Python steps pause for a signed-in operator by default. The execution snapshot records the exact source for review. A confirmed step records the username from the server session. An explicitly automatic script records `system`. The next step receives the preceding HTTP response body, Python return value, or escalation result. Each failed or timed-out execution stops the sequence and commits its bounded output to PostgreSQL. The [Python action contract](rules/python-actions.md) includes the YAML and alert-detail formats.

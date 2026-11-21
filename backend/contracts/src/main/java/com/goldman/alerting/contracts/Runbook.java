@@ -18,9 +18,14 @@ public record Runbook(UUID id, String name, String format, String content, List<
         this(id, name, format, content, List.of());
     }
 
-    public record Action(String type, Map<String, String> params) {
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record Action(String type, Map<String, String> params, String code, String approval, Integer timeoutMs) {
+        public Action(String type, Map<String, String> params) {
+            this(type, params, null, null, null);
+        }
+
         public Action {
-            params = Map.copyOf(params);
+            params = params == null ? Map.of() : Map.copyOf(params);
         }
     }
 }

@@ -97,13 +97,7 @@ class RuleCreation {
         if (draft.runbook() == null) return null;
         var inline = draft.inlineBook();
         if (inline != null) {
-            inline.actions().forEach(catalog::resolve);
-            var id = db.insertInto(RUNBOOKS).set(RUNBOOKS.NAME, draft.runbook())
-                    .set(RUNBOOKS.FORMAT, inline.format()).set(RUNBOOKS.CONTENT, inline.content())
-                    .set(RUNBOOKS.ACTIONS, JSONB.valueOf(json.valueToTree(inline.actions()).toString()))
-                    .set(RUNBOOKS.UPDATED_BY, actor).onConflict(RUNBOOKS.NAME).doNothing()
-                    .returningResult(RUNBOOKS.ID).fetchOptional(RUNBOOKS.ID).orElseThrow(RunbookConflict::new);
-            return new Runbook(id, draft.runbook(), inline.format(), inline.content(), inline.actions());
+            return createBook(draft.runbook(), inline, actor);
         }
         var row = db.selectFrom(RUNBOOKS)
                 .where(RUNBOOKS.NAME.eq(draft.runbook()).and(RUNBOOKS.ENABLED.isTrue()))
@@ -116,6 +110,17 @@ class RuleCreation {
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException("Invalid stored runbook", e);
         }
+    }
+
+    @Transactional
+    public Runbook createBook(String name, RuleDocument.InlineBook inline, String actor) {
+        inline.actions().forEach(catalog::resolve);
+        var id = db.insertInto(RUNBOOKS).set(RUNBOOKS.NAME, name)
+                .set(RUNBOOKS.FORMAT, inline.format()).set(RUNBOOKS.CONTENT, inline.content())
+                .set(RUNBOOKS.ACTIONS, JSONB.valueOf(json.valueToTree(inline.actions()).toString()))
+                .set(RUNBOOKS.UPDATED_BY, actor).onConflict(RUNBOOKS.NAME).doNothing()
+                .returningResult(RUNBOOKS.ID).fetchOptional(RUNBOOKS.ID).orElseThrow(RunbookConflict::new);
+        return new Runbook(id, name, inline.format(), inline.content(), inline.actions());
     }
 
     private UUID teamId(String name) {

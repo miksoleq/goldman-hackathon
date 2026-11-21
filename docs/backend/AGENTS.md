@@ -45,3 +45,7 @@ With Java 21, Maven 3.9, a dedicated PostgreSQL 17 database and Redis, run `mvn 
 ### Account and membership checks
 
 Use the isolated PostgreSQL/Redis verification command above. AccountsTest and AccountPermissionsIT exercise login, logout, 401, 403, team membership and server-assigned ownership. The Compose smoke script signs in as the seeded demo member before creating its rules.
+
+### Python runbook checks
+
+Use the existing Compose database settings and run `docker compose up -d --build control engine` from the root. Control starts the private script-runner dependency. Run its unit and HTTP/subprocess tests with `docker compose exec -T script-runner python -B - < script-runner/test_runner.py`. The Java 21 Control and Engine suites use the dedicated PostgreSQL and Redis verification command above. To exercise the seeded diagnostics and named Python actions through a running demo stack, run `python3 scripts/test-python-runbook.py`. It creates uniquely named test rules, runbooks and alerts.

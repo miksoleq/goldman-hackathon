@@ -6,7 +6,8 @@ import org.jooq.DSLContext;
 import org.jooq.Records;
 import com.goldman.alerting.control.actions.RunbookActions;
 import com.fasterxml.jackson.databind.JsonNode;
-import java.security.Principal;
+import jakarta.servlet.http.HttpServletRequest;
+import com.goldman.alerting.control.auth.Accounts;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,7 +20,10 @@ class AlertReadController {
     private final DSLContext db;
     private final RunbookActions actions;
 
-    AlertReadController(DSLContext db, RunbookActions actions) {
+    private final Accounts accounts;
+
+    AlertReadController(DSLContext db, RunbookActions actions, Accounts accounts) {
+        this.accounts = accounts;
         this.db = db;
         this.actions = actions;
     }
@@ -39,7 +43,7 @@ class AlertReadController {
 
     @PostMapping("/alerts/{id}/actions/{stepNo}/execute")
     RunbookActions.Step execute(@PathVariable("id") UUID id, @PathVariable("stepNo") int stepNo,
-                                @RequestBody ExecuteRequest request, Principal principal) {
-        return actions.execute(id, stepNo, request.confirmed(), principal == null ? "system" : principal.getName());
+                                @RequestBody ExecuteRequest request, HttpServletRequest session) {
+        return actions.execute(id, stepNo, request.confirmed(), accounts.require(session).username());
     }
 }

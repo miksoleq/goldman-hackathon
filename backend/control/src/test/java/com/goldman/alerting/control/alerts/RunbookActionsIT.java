@@ -33,6 +33,40 @@ class RunbookActionsIT {
     final CountDownLatch entered = new CountDownLatch(1);
     final CountDownLatch release = new CountDownLatch(1);
     HttpServer provider;
+    org.springframework.http.HttpHeaders sessionHeaders;
+
+    private static HttpServer runner;
+    private static final AtomicReference<JsonNode> runnerRequest = new AtomicReference<>();
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void runnerEndpoint(org.springframework.test.context.DynamicPropertyRegistry properties) throws Exception {
+        runner = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        runner.createContext("/execute", exchange -> {
+            try (exchange) {
+                runnerRequest.set(new ObjectMapper().readTree(exchange.getRequestBody()));
+                exchange.sendResponseHeaders(200, 0);
+                exchange.getResponseBody().write("""
+                        {"status":"SUCCESS","exitCode":0,"result":{"healthy":true},"stdout":"ok","stderr":"","durationMs":42}
+                        """.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        });
+        runner.start();
+        properties.add("script-runner.url", () -> "http://127.0.0.1:" + runner.getAddress().getPort() + "/execute");
+    }
+
+    @AfterAll static void stopRunner() { runner.stop(0); }
+
+    @BeforeEach void signIn() {
+        var response = api.postForEntity("/api/auth/login",
+                Map.of("username", "demo.member", "password", "Runbook123!"), JsonNode.class);
+        assertEquals(200, response.getStatusCode().value());
+        sessionHeaders = new org.springframework.http.HttpHeaders();
+        sessionHeaders.set("Cookie", response.getHeaders().getFirst("Set-Cookie").split(";", 2)[0]);
+    }
+
+    org.springframework.http.HttpEntity<?> confirmation(boolean confirmed) {
+        return new org.springframework.http.HttpEntity<>(Map.of("confirmed", confirmed), sessionHeaders);
+    }
 
     @BeforeEach void startProvider() throws Exception {
         provider = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -84,18 +118,63 @@ class RunbookActionsIT {
     private String url() { return "/api/alerts/" + alertId; }
 
     JsonNode run() {
-        var response = api.postForEntity(url() + "/actions/1/execute", Map.of("confirmed", true), JsonNode.class);
+        var response = api.postForEntity(url() + "/actions/1/execute", confirmation(true), JsonNode.class);
         assertEquals(200, response.getStatusCode().value());
         return response.getBody();
+    }
+
+    @Test void snapshotsNamedPythonCodeAndAuditsAuthenticatedApprovalAfterHttp() throws Exception {
+        String scriptName = "script-" + alertId;
+        String code = "def run(ctx): return ctx['previousStepResult']";
+        try {
+            var document = Map.of("kind", "ActionType", "name", scriptName, "spec", Map.of("type", "python", "code", code));
+            assertEquals(201, api.postForEntity("/api/apply", new org.springframework.http.HttpEntity<>(document, sessionHeaders),
+                    JsonNode.class).getStatusCode().value());
+            var get = json.createObjectNode().put("method", "GET").put("url",
+                    "http://127.0.0.1:" + provider.getAddress().getPort() + "/workflows/WF-42");
+            get.putArray("params");
+            db.insertInto(ACTION_TYPES).set(ACTION_TYPES.NAME, type).set(ACTION_TYPES.KIND, "http")
+                    .set(ACTION_TYPES.TEMPLATE, JSONB.valueOf(get.toString())).execute();
+            var book = new Runbook(UUID.randomUUID(), "diagnostic", "text", "Check", List.of(
+                    new Runbook.Action(type, Map.of()), new Runbook.Action(scriptName, Map.of())));
+            var event = json.readTree("{\"payload\":{\"workflowId\":\"WF-42\"}}");
+            var alert = new LiveAlert(1, "alert.created", alertId, UUID.randomUUID(), UUID.randomUUID(),
+                    List.of(), List.of(), "high", "Timeout", "", 1, Instant.now(), book.id(), book, event);
+            release.countDown();
+            inbox.receive(alert, json.writeValueAsString(alert));
+            awaitStatus(0, "succeeded");
+            String execute = url() + "/actions/2/execute";
+            assertEquals(401, api.postForEntity(execute, Map.of("confirmed", true), String.class).getStatusCode().value());
+            assertEquals(409, api.postForEntity(execute, confirmation(false), String.class).getStatusCode().value());
+            var step = api.postForObject(execute, confirmation(true), JsonNode.class);
+            assertEquals("python", step.path("kind").asText());
+            assertEquals("demo.member", step.path("approvedBy").asText());
+            assertEquals("demo.member", step.path("executedBy").asText());
+            assertTrue(step.at("/result/result/healthy").asBoolean());
+            assertEquals(42, step.at("/result/durationMs").asInt());
+            assertEquals(step, api.getForObject(url(), JsonNode.class).at("/actions/1"));
+            assertEquals(code, runnerRequest.get().path("code").asText());
+            assertEquals(event, runnerRequest.get().at("/context/event"));
+            assertEquals(alertId.toString(), runnerRequest.get().at("/context/alert/alertId").asText());
+            assertEquals("running", runnerRequest.get().at("/context/previousStepResult/status").asText());
+            var audit = db.selectFrom(AUDIT_LOG).where(AUDIT_LOG.ENTITY_ID.eq(db.select(ACTION_EXECUTIONS.ID.cast(String.class))
+                    .from(ACTION_EXECUTIONS).where(ACTION_EXECUTIONS.LIVE_ALERT_ID.eq(alertId)).and(ACTION_EXECUTIONS.STEP_NO.eq(2))))
+                    .fetchSingle();
+            assertEquals("demo.member", audit.getActor());
+            assertEquals(step.path("result"), json.readTree(audit.getDetails().data()).path("result"));
+        } finally {
+            db.deleteFrom(AUDIT_LOG).where(AUDIT_LOG.ENTITY_ID.eq(scriptName)).execute();
+            db.deleteFrom(ACTION_TYPES).where(ACTION_TYPES.NAME.eq(scriptName)).execute();
+        }
     }
 
     @Test void requiresApprovalAndSerializesConcurrentRequestsAcrossReplay() throws Exception {
         var alert = deliver(3000);
         var detail = api.getForObject(url(), JsonNode.class);
         assertEquals("Missing parameter: workflowId", detail.at("/actions/1/reason").asText());
-        assertEquals(409, api.postForEntity(url() + "/actions/2/execute", Map.of("confirmed", true), String.class)
+        assertEquals(409, api.postForEntity(url() + "/actions/2/execute", confirmation(true), String.class)
                 .getStatusCode().value());
-        assertEquals(409, api.postForEntity(url() + "/actions/1/execute", Map.of("confirmed", false), String.class)
+        assertEquals(409, api.postForEntity(url() + "/actions/1/execute", confirmation(false), String.class)
                 .getStatusCode().value());
         assertEquals(0, calls.get());
         try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -112,7 +191,7 @@ class RunbookActionsIT {
         var row = db.selectFrom(ACTION_EXECUTIONS).where(ACTION_EXECUTIONS.LIVE_ALERT_ID.eq(alertId)
                 .and(ACTION_EXECUTIONS.STEP_NO.eq(1))).fetchSingle();
         assertEquals(row.getId().toString(), key.get());
-        assertEquals("system", row.getApprovedBy());
+        assertEquals("demo.member", row.getApprovedBy());
         assertEquals(1, db.fetchCount(AUDIT_LOG, AUDIT_LOG.ENTITY_ID.eq(key.get())));
     }
 
@@ -137,7 +216,7 @@ class RunbookActionsIT {
         assertEquals("running", pending.at("/actions/0/status").asText());
         assertEquals("ready", pending.at("/actions/1/status").asText());
         assertFalse(pending.at("/actions/1/available").asBoolean());
-        assertEquals(409, api.postForEntity(url() + "/actions/2/execute", Map.of("confirmed", true), String.class)
+        assertEquals(409, api.postForEntity(url() + "/actions/2/execute", confirmation(true), String.class)
                 .getStatusCode().value());
         release.countDown();
         var done = awaitStatus(1, "succeeded");

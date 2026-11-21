@@ -23,17 +23,20 @@ import static org.springframework.http.HttpStatus.*;
 @Service
 public class RunbookActions {
     public record Step(int stepNo, String type, String title, JsonNode params, ActionStatus status,
-                       boolean approvalRequired, boolean automatic, boolean available, String reason, JsonNode result) {}
+                       boolean approvalRequired, boolean automatic, boolean available, String reason, JsonNode result,
+                       String kind, String code, String executedBy, String approvedBy) {}
     private final DSLContext db;
     private final ObjectMapper json;
     private final ActionCatalog catalog;
     private final HttpAction http;
+    private final PythonActionHandler python;
 
-    RunbookActions(DSLContext db, ObjectMapper json, ActionCatalog catalog, HttpAction http) {
+    RunbookActions(DSLContext db, ObjectMapper json, ActionCatalog catalog, HttpAction http, PythonActionHandler python) {
         this.db = db;
         this.json = json;
         this.catalog = catalog;
         this.http = http;
+        this.python = python;
     }
 
     public void initialize(LiveAlert alert) {
@@ -149,9 +152,13 @@ public class RunbookActions {
             row.setApprovedBy(actor);
         }
         Map<String, String> params = json.convertValue(parse(row.getParams()), new TypeReference<>() {});
-        var outcome = "http".equals(row.getKind())
-                ? http.execute(parse(row.getTemplate()), params, row.getId())
-                : escalate(alertId, params.get("team"));
+        var template = parse(row.getTemplate());
+        var outcome = switch (row.getKind()) {
+            case "http" -> http.execute(template, params, row.getId());
+            case "escalate" -> escalate(alertId, params.get("team"));
+            case "python" -> python.execute(template, scriptContext(alertId, stepNo));
+            default -> throw new IllegalStateException("Unsupported stored action kind");
+        };
         row.setStatus(outcome.status());
         row.setResult(stored(outcome.result()));
         row.setFinishedAt(OffsetDateTime.now());
@@ -171,6 +178,24 @@ public class RunbookActions {
                 .set(AUDIT_LOG.ENTITY_ID, row.getId().toString()).set(AUDIT_LOG.ACTOR, actor)
                 .set(AUDIT_LOG.ACTION, "action.executed").set(AUDIT_LOG.DETAILS, stored(audit)).execute();
         return view(row, true);
+    }
+
+    private ObjectNode scriptContext(UUID alertId, int stepNo) {
+        var alert = (ObjectNode) parse(db.select(LIVE_ALERT_INBOX.PAYLOAD).from(LIVE_ALERT_INBOX)
+                .where(LIVE_ALERT_INBOX.ALERT_ID.eq(alertId)).fetchSingle(LIVE_ALERT_INBOX.PAYLOAD));
+        var context = json.createObjectNode();
+        context.set("event", alert.remove("event"));
+        context.set("alert", alert);
+        var previous = db.select(ACTION_EXECUTIONS.KIND, ACTION_EXECUTIONS.RESULT).from(ACTION_EXECUTIONS)
+                .where(ACTION_EXECUTIONS.LIVE_ALERT_ID.eq(alertId)).and(ACTION_EXECUTIONS.STEP_NO.eq(stepNo - 1))
+                .fetchOne();
+        JsonNode value = previous == null ? null : parse(previous.value2());
+        if (value != null) {
+            if ("http".equals(previous.value1())) value = value.get("response");
+            else if ("python".equals(previous.value1())) value = value.get("result");
+        }
+        context.set("previousStepResult", value);
+        return context;
     }
 
     private HttpAction.Outcome escalate(UUID alertId, String name) {
@@ -200,7 +225,9 @@ public class RunbookActions {
     private Step view(ActionExecutionsRecord row, boolean priorSucceeded) {
         return new Step(row.getStepNo(), row.getAction(), row.getTitle(), parse(row.getParams()), row.getStatus(),
                 row.getApprovalRequired(), Boolean.TRUE.equals(row.getAutomatic()),
-                (row.getAutomatic() == null || priorSucceeded) && available(row), row.getComment(), parse(row.getResult()));
+                (row.getAutomatic() == null || priorSucceeded) && available(row), row.getComment(), parse(row.getResult()),
+                row.getKind(), "python".equals(row.getKind()) ? parse(row.getTemplate()).path("code").textValue() : null,
+                row.getExecutedBy(), row.getApprovedBy());
     }
 
     private JsonNode parse(JSONB value) {

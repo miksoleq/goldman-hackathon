@@ -57,7 +57,7 @@ class HttpAction {
                 .header("Accept", "application/json")
                 .timeout(Duration.ofMillis(timeoutMs));
         if (!read) builder.header("Idempotency-Key", executionId.toString()).POST(HttpRequest.BodyPublishers.noBody());
-        var pending = client.sendAsync(builder.build(), info -> boundedBody());
+        var pending = client.sendAsync(builder.build(), info -> boundedBody(4097));
         try {
             var response = pending.get(timeoutMs, TimeUnit.MILLISECONDS);
             var result = json.createObjectNode().put("httpStatus", response.statusCode());
@@ -87,10 +87,10 @@ class HttpAction {
         }
     }
 
-    private static HttpResponse.BodySubscriber<String> boundedBody() {
+    static HttpResponse.BodySubscriber<String> boundedBody(int limit) {
         var bytes = new ByteArrayOutputStream();
         var subscriber = HttpResponse.BodySubscribers.ofByteArrayConsumer(chunk -> chunk.ifPresent(data ->
-                bytes.write(data, 0, Math.min(4097 - bytes.size(), data.length))));
+                bytes.write(data, 0, Math.min(limit - bytes.size(), data.length))));
         return HttpResponse.BodySubscribers.mapping(subscriber, ignored -> bytes.toString(StandardCharsets.UTF_8));
     }
 }

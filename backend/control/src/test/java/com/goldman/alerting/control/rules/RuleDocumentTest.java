@@ -5,6 +5,29 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RuleDocumentTest {
+    @Test void readsLiteralPythonStepsAndCapsTheirTimeout() throws Exception {
+        var draft = new RuleDocument().parse("""
+                name: Diagnostic
+                title: Alert
+                match: {path: payload, op: exists}
+                route: {teams: [demo]}
+                runbook:
+                  name: steps
+                  steps:
+                    - action: python
+                      approval: none
+                      timeoutMs: 7000
+                      code: |
+                        def run(ctx):
+                            return "{{literal Python braces}}"
+                """);
+        var action = draft.inlineBook().actions().getFirst();
+        assertThat(action.code()).contains("{{literal Python braces}}");
+        assertThat(action.params()).isEmpty();
+        assertThat(action.approval()).isEqualTo("none");
+        assertThat(action.timeoutMs()).isEqualTo(5000);
+    }
+
     @Test
     void validatesAttachedInstructions() throws Exception {
         var parser = new RuleDocument();

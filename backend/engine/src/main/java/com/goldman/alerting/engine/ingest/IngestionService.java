@@ -70,7 +70,8 @@ public class IngestionService {
             var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.fromString(eventId),
                     UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
                     spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),
-                    book == null ? LiveAlert.UNASSIGNED_RUNBOOK : book.id(), book);
+                    book == null ? LiveAlert.UNASSIGNED_RUNBOOK : book.id(), book,
+                    book != null && !book.actions().isEmpty() ? event : null);
             var dedup = rule.definition().dedup();
             alerts.add(new IngestPublisher.MatchedAlert(alert, dedup.fingerprint(rule.id(), event), dedup.windowSeconds()));
         }

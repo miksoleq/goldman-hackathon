@@ -34,7 +34,7 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         return event -> {
             Map<String, String> rendered = new LinkedHashMap<>();
             parameters.forEach((key, value) -> rendered.put(key, value.apply(event)));
-            return new Runbook.Action(action.type(), rendered);
+            return new Runbook.Action(action.type(), rendered, action.code(), action.approval(), action.timeoutMs());
         };
     }
 

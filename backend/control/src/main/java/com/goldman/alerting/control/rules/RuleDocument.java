@@ -35,6 +35,10 @@ class RuleDocument {
     }
 
     Draft parse(String source) {
+        return parse(read(source));
+    }
+
+    ObjectNode read(String source) {
         JsonNode root;
         try {
             root = yaml.readTree(source);
@@ -42,7 +46,11 @@ class RuleDocument {
             throw invalid("Invalid YAML: expected one document with unique keys");
         }
         require(root instanceof ObjectNode, "Expected a rule object");
-        ObjectNode def = ((ObjectNode) root).deepCopy();
+        return (ObjectNode) root;
+    }
+
+    Draft parse(ObjectNode root) {
+        ObjectNode def = root.deepCopy();
         if (def.has("kind")) {
             require("Rule".equals(def.path("kind").asText()) && def.size() == 3 && def.path("spec").isObject(),
                     "Expected kind, name and spec for a Rule resource");
@@ -68,18 +76,7 @@ class RuleDocument {
         if (runbook != null && runbook.isObject()) {
             book = name(runbook.get("name"), "runbook.name");
             require(!Set.of("auto", "none").contains(book), "Reserved runbook name");
-            String format = name(runbook.get("format"), "runbook.format");
-            String content = name(runbook.get("content"), "runbook.content");
-            runbook.fieldNames().forEachRemaining(key -> require(Set.of("name", "format", "content", "actions").contains(key),
-                    "Unknown runbook key: " + key));
-            require(Set.of("markdown", "text", "url").contains(format), "Invalid runbook");
-            if (format.equals("url")) {
-                var uri = java.net.URI.create(content);
-                require(uri.getHost() != null && Set.of("http", "https").contains(uri.getScheme()), "Expected HTTP(S) URL");
-            } else {
-                checkTemplate(content);
-            }
-            inline = new InlineBook(format, content, actions(runbook.get("actions")));
+            inline = parseBook(runbook);
         } else {
             book = runbook == null ? "auto" : name(runbook, "runbook");
         }
@@ -100,21 +97,49 @@ class RuleDocument {
                 teams, users, Set.of("auto","none").contains(book) ? null : book, inline, def);
     }
 
+    InlineBook parseBook(JsonNode book) {
+        book.fieldNames().forEachRemaining(key -> require(Set.of("name", "format", "content", "actions", "steps").contains(key),
+                "Unknown runbook key: " + key));
+        require(!(book.has("actions") && book.has("steps")), "Specify actions or steps");
+        boolean stepsOnly = book.has("steps");
+        String format = stepsOnly && !book.has("format") ? "text" : name(book.get("format"), "runbook.format");
+        String content = stepsOnly && !book.has("content") ? "" : name(book.get("content"), "runbook.content");
+        require(Set.of("markdown", "text", "url").contains(format), "Invalid runbook format");
+        if (format.equals("url")) {
+            var uri = java.net.URI.create(content);
+            require(uri.getHost() != null && Set.of("http", "https").contains(uri.getScheme()), "Expected HTTP(S) URL");
+        } else {
+            checkTemplate(content);
+        }
+        return new InlineBook(format, content, actions(book.get(stepsOnly ? "steps" : "actions")));
+    }
+
     private List<Action> actions(JsonNode steps) {
         if (steps == null) return List.of();
         require(steps.isArray(), "Expected runbook.actions array");
         List<Action> actions = new ArrayList<>();
         for (var step : steps) {
-            String type = name(step.get("type"), "action.type");
+            require(step.isObject() && step.has("type") != step.has("action"), "Expected one action name");
+            step.fieldNames().forEachRemaining(key -> require(Set.of("type", "action", "params", "code", "approval", "timeoutMs").contains(key),
+                    "Unknown action key: " + key));
+            String type = name(step.get(step.has("type") ? "type" : "action"), "action.type");
+            String code = step.has("code") ? name(step.get("code"), "action.code") : null;
+            String approval = step.has("approval") ? name(step.get("approval"), "approval") : null;
+            Integer timeout = null;
+            if (step.has("timeoutMs")) {
+                var ms = step.get("timeoutMs");
+                require(ms.isIntegralNumber() && ms.canConvertToInt() && ms.intValue() > 0, "Expected positive timeoutMs");
+                timeout = Math.min(ms.intValue(), 5000);
+            }
             var params = step.path("params");
-            require(step.size() == 2 && params.isObject(), "Expected action type and params");
+            require(params.isMissingNode() || params.isObject(), "Expected action params object");
             Map<String, String> values = new LinkedHashMap<>();
             params.fields().forEachRemaining(entry -> {
                 String value = name(entry.getValue(), "action parameter " + entry.getKey());
                 checkTemplate(value);
                 values.put(entry.getKey(), value);
             });
-            actions.add(new Action(type, values));
+            actions.add(new Action(type, values, code, approval, timeout));
         }
         return List.copyOf(actions);
     }
