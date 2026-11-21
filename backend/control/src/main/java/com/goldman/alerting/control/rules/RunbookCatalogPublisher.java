@@ -39,11 +39,12 @@ class RunbookCatalogPublisher {
                 .forUpdate().skipLocked().fetchOne() == null) return;
 
         var candidates = new ArrayList<RunbookCandidate>();
-        var rows = db.select(RUNBOOKS.ID, RUNBOOKS.NAME, RUNBOOKS.FORMAT, RUNBOOKS.CONTENT, RUNBOOKS.MATCHES)
+        var rows = db.select(RUNBOOKS.ID, RUNBOOKS.NAME, RUNBOOKS.FORMAT, RUNBOOKS.CONTENT, RUNBOOKS.MATCHES, RUNBOOKS.ACTIONS)
                 .from(RUNBOOKS).where(RUNBOOKS.ENABLED.isTrue().and(RUNBOOKS.MATCHES.isNotNull()))
                 .orderBy(RUNBOOKS.ID).fetch();
         for (var row : rows) {
-            var book = new Runbook(row.value1(), row.value2(), row.value3(), row.value4());
+            var book = new Runbook(row.value1(), row.value2(), row.value3(), row.value4(),
+                    mapper.readValue(row.value6().data(), new com.fasterxml.jackson.core.type.TypeReference<>() {}));
             candidates.add(new RunbookCandidate(book, mapper.readTree(row.value5().data())));
         }
         String snapshot = mapper.writeValueAsString(candidates);

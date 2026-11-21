@@ -4,6 +4,7 @@ import static com.goldman.alerting.control.db.Tables.LIVE_ALERT_INBOX;
 
 import com.goldman.alerting.contracts.LiveAlert;
 import com.goldman.alerting.control.actions.RunbookActions;
+import com.goldman.alerting.control.notifications.NotificationRouting;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.jooq.impl.DSL;
@@ -19,7 +20,10 @@ class AlertInbox {
 
     private final RunbookActions actions;
 
-    AlertInbox(DSLContext db, ApplicationEventPublisher events, RunbookActions actions) {
+    private final NotificationRouting notifications;
+
+    AlertInbox(DSLContext db, ApplicationEventPublisher events, RunbookActions actions, NotificationRouting notifications) {
+        this.notifications = notifications;
         this.db = db;
         this.actions = actions;
         this.events = events;
@@ -45,6 +49,7 @@ class AlertInbox {
                 .set(LIVE_ALERT_INBOX.PAYLOAD, JSONB.valueOf(payload))
                 .onConflict(LIVE_ALERT_INBOX.ALERT_ID).doNothing().execute();
         if (inserted == 1) {
+            notifications.route(alert);
             actions.initialize(alert);
             events.publishEvent(alert);
         }

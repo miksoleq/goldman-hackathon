@@ -7,6 +7,7 @@ package com.goldman.alerting.control.db.tables;
 import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
 import com.goldman.alerting.control.db.tables.ActionExecutions.ActionExecutionsPath;
+import com.goldman.alerting.control.db.tables.NotificationDeliveries.NotificationDeliveriesPath;
 import com.goldman.alerting.control.db.tables.records.LiveAlertInboxRecord;
 
 import java.time.OffsetDateTime;
@@ -155,6 +156,19 @@ public class LiveAlertInbox extends TableImpl<LiveAlertInboxRecord> {
             _actionExecutions = new ActionExecutionsPath(this, null, Keys.ACTION_EXECUTIONS__ACTION_EXECUTIONS_LIVE_ALERT_ID_FKEY.getInverseKey());
 
         return _actionExecutions;
+    }
+
+    private transient NotificationDeliveriesPath _notificationDeliveries;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.notification_deliveries</code> table
+     */
+    public NotificationDeliveriesPath notificationDeliveries() {
+        if (_notificationDeliveries == null)
+            _notificationDeliveries = new NotificationDeliveriesPath(this, null, Keys.NOTIFICATION_DELIVERIES__NOTIFICATION_DELIVERIES_ALERT_ID_FKEY.getInverseKey());
+
+        return _notificationDeliveries;
     }
 
     @Override

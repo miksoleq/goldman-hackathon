@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RunbookCatalog {
     private static final Logger log = LoggerFactory.getLogger(RunbookCatalog.class);
-    private record Entry(Runbook book, Predicate<JsonNode> matches, RuleTemplate.Renderer content) {}
+    private record Entry(Runbook book, Predicate<JsonNode> matches, AlertSpec.BookRenderer renderer) {}
     private volatile List<Entry> entries = List.of();
 
     public void replace(List<RunbookCandidate> candidates) {
@@ -24,9 +24,7 @@ public class RunbookCatalog {
             var book = candidate.runbook();
             try {
                 var predicate = RuleIndex.compileMatch(matchTree(candidate.matches()));
-                RuleTemplate.Renderer content = "url".equals(book.format())
-                        ? (event, id, name) -> book.content() : RuleTemplate.compile(book.content());
-                compiled.add(new Entry(book, predicate, content));
+                compiled.add(new Entry(book, predicate, AlertSpec.compileBook(book)));
             } catch (IllegalArgumentException invalid) {
                 log.warn("Skipping invalid auto runbook {}", book.id());
             }
@@ -51,9 +49,7 @@ public class RunbookCatalog {
         if (!rule.alert().autoRunbook()) return rule.alert().runbook().apply(event);
         for (var entry : entries) {
             if (entry.matches().test(event)) {
-                var book = entry.book();
-                String content = entry.content().render(event, rule.id(), rule.definition().name());
-                return new Runbook(book.id(), book.name(), book.format(), content);
+                return entry.renderer().render(event, rule.id(), rule.definition().name());
             }
         }
         return null;

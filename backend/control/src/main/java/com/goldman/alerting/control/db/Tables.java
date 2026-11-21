@@ -7,8 +7,11 @@ package com.goldman.alerting.control.db;
 import com.goldman.alerting.control.db.tables.ActionExecutions;
 import com.goldman.alerting.control.db.tables.ActionTypes;
 import com.goldman.alerting.control.db.tables.AuditLog;
+import com.goldman.alerting.control.db.tables.Channels;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
+import com.goldman.alerting.control.db.tables.DeliveryPrefs;
 import com.goldman.alerting.control.db.tables.LiveAlertInbox;
+import com.goldman.alerting.control.db.tables.NotificationDeliveries;
 import com.goldman.alerting.control.db.tables.RuleCreatedOutbox;
 import com.goldman.alerting.control.db.tables.RuleTeams;
 import com.goldman.alerting.control.db.tables.RuleUsers;
@@ -42,14 +45,29 @@ public class Tables {
     public static final AuditLog AUDIT_LOG = AuditLog.AUDIT_LOG;
 
     /**
+     * The table <code>public.channels</code>.
+     */
+    public static final Channels CHANNELS = Channels.CHANNELS;
+
+    /**
      * The table <code>public.config_version</code>.
      */
     public static final ConfigVersion CONFIG_VERSION = ConfigVersion.CONFIG_VERSION;
 
     /**
+     * The table <code>public.delivery_prefs</code>.
+     */
+    public static final DeliveryPrefs DELIVERY_PREFS = DeliveryPrefs.DELIVERY_PREFS;
+
+    /**
      * The table <code>public.live_alert_inbox</code>.
      */
     public static final LiveAlertInbox LIVE_ALERT_INBOX = LiveAlertInbox.LIVE_ALERT_INBOX;
+
+    /**
+     * The table <code>public.notification_deliveries</code>.
+     */
+    public static final NotificationDeliveries NOTIFICATION_DELIVERIES = NotificationDeliveries.NOTIFICATION_DELIVERIES;
 
     /**
      * The table <code>public.rule_created_outbox</code>.

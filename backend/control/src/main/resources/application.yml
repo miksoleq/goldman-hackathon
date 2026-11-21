@@ -26,10 +26,20 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:55432/alerting}
     username: ${SPRING_DATASOURCE_USERNAME:alerting}
     password: ${SPRING_DATASOURCE_PASSWORD:}
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 2000
+      mail.smtp.timeout: 4000
+      mail.smtp.writetimeout: 4000
   flyway:
     enabled: true
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -42,3 +52,10 @@ rules:
   redis:
     enabled: ${RULES_REDIS_ENABLED:false}
     channel: ${RULES_REDIS_CHANNEL:rules.created.v1}
+
+notifications:
+  http:
+    endpoints:
+      sms:
+        url: ${NOTIFICATIONS_SMS_URL:http://localhost:8084/messages}
+        authorization: ${SMS_AUTHORIZATION:}

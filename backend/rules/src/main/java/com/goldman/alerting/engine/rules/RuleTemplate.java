@@ -19,6 +19,15 @@ public final class RuleTemplate {
     }
 
     public static Renderer compile(String text) {
+        return compile(text, false);
+    }
+
+    /** Action parameters become unavailable if any required substitution is missing. */
+    public static Renderer compileParameter(String text) {
+        return compile(text, true);
+    }
+
+    private static Renderer compile(String text, boolean required) {
         List<Renderer> parts = new ArrayList<>();
         int start = 0;
         for (int open; (open = text.indexOf("{{", start)) >= 0;) {
@@ -46,6 +55,7 @@ public final class RuleTemplate {
                 List<JsonNode> nodes = new ArrayList<>();
                 if (path != null) path.forEachValue(event, nodes::add);
                 else nodes.add(TextNode.valueOf(ref.equals("rule.id") ? id : name));
+                if (required) nodes.removeIf(JsonNode::isNull);
                 String result = join(nodes, false);
                 for (int i = 1; i < expr.length; i++) {
                     String filter = expr[i].trim();
@@ -59,7 +69,7 @@ public final class RuleTemplate {
                             result = result.substring(0, result.offsetByCodePoints(0, limit.intValueExact())) + "…";
                     }
                 }
-                return result;
+                return required && result.isBlank() ? null : result;
             });
             start = end + 2;
         }
@@ -67,7 +77,11 @@ public final class RuleTemplate {
         if (parts.isEmpty()) return (event, id, name) -> tail;
         return (event, id, name) -> {
             var out = new StringBuilder();
-            for (var part : parts) out.append(part.render(event, id, name));
+            for (var part : parts) {
+                String value = part.render(event, id, name);
+                if (value == null) return "";
+                out.append(value);
+            }
             return out.append(tail).toString();
         };
     }

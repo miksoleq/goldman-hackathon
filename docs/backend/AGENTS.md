@@ -53,3 +53,7 @@ Use the existing Compose database settings and run `docker compose up -d --build
 ### Runbook editor checks
 
 The Control and Engine verification command above was verified with Java 21, PostgreSQL 17 and Redis. RunbookEditorIT exercises authenticated HTTP edits, ETags, duplicate names, legacy URL and Python settings, and versioned snapshots for multiple attached rules.
+
+### SMS and email verification
+
+Run the Control tests against disposable PostgreSQL and Redis with the Maven verification command above. For provider-level verification run the isolated Compose suite documented in docs/e2e/SCENARIOS.md. It starts Mailpit and the SMS simulator with unique loopback ports.

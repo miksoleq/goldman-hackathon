@@ -6,6 +6,7 @@ package com.goldman.alerting.control.db.tables;
 
 import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
+import com.goldman.alerting.control.db.tables.DeliveryPrefs.DeliveryPrefsPath;
 import com.goldman.alerting.control.db.tables.RuleTeams.RuleTeamsPath;
 import com.goldman.alerting.control.db.tables.Rules.RulesPath;
 import com.goldman.alerting.control.db.tables.TeamMembers.TeamMembersPath;
@@ -156,6 +157,19 @@ public class Teams extends TableImpl<TeamsRecord> {
     @Override
     public List<UniqueKey<TeamsRecord>> getUniqueKeys() {
         return Arrays.asList(Keys.TEAMS_NAME_KEY);
+    }
+
+    private transient DeliveryPrefsPath _deliveryPrefs;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.delivery_prefs</code> table
+     */
+    public DeliveryPrefsPath deliveryPrefs() {
+        if (_deliveryPrefs == null)
+            _deliveryPrefs = new DeliveryPrefsPath(this, null, Keys.DELIVERY_PREFS__DELIVERY_PREFS_TEAM_ID_FKEY.getInverseKey());
+
+        return _deliveryPrefs;
     }
 
     private transient RuleTeamsPath _ruleTeams;

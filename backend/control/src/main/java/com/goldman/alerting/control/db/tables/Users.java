@@ -6,6 +6,8 @@ package com.goldman.alerting.control.db.tables;
 
 import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
+import com.goldman.alerting.control.db.tables.DeliveryPrefs.DeliveryPrefsPath;
+import com.goldman.alerting.control.db.tables.NotificationDeliveries.NotificationDeliveriesPath;
 import com.goldman.alerting.control.db.tables.RuleUsers.RuleUsersPath;
 import com.goldman.alerting.control.db.tables.Rules.RulesPath;
 import com.goldman.alerting.control.db.tables.TeamMembers.TeamMembersPath;
@@ -23,6 +25,7 @@ import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
 import org.jooq.InverseForeignKey;
+import org.jooq.JSONB;
 import org.jooq.Name;
 import org.jooq.Path;
 import org.jooq.PlainSQL;
@@ -108,6 +111,11 @@ public class Users extends TableImpl<UsersRecord> {
      */
     public final TableField<UsersRecord, String> ROLE = createField(DSL.name("role"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field(DSL.raw("'MEMBER'::text"), SQLDataType.CLOB)), this, "");
 
+    /**
+     * The column <code>public.users.contacts</code>.
+     */
+    public final TableField<UsersRecord, JSONB> CONTACTS = createField(DSL.name("contacts"), SQLDataType.JSONB.nullable(false).defaultValue(DSL.field(DSL.raw("'{}'::jsonb"), SQLDataType.JSONB)), this, "");
+
     private Users(Name alias, Table<UsersRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -185,6 +193,32 @@ public class Users extends TableImpl<UsersRecord> {
         return Arrays.asList(Keys.USERS_USERNAME_KEY);
     }
 
+    private transient DeliveryPrefsPath _deliveryPrefs;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.delivery_prefs</code> table
+     */
+    public DeliveryPrefsPath deliveryPrefs() {
+        if (_deliveryPrefs == null)
+            _deliveryPrefs = new DeliveryPrefsPath(this, null, Keys.DELIVERY_PREFS__DELIVERY_PREFS_USER_ID_FKEY.getInverseKey());
+
+        return _deliveryPrefs;
+    }
+
+    private transient NotificationDeliveriesPath _notificationDeliveries;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.notification_deliveries</code> table
+     */
+    public NotificationDeliveriesPath notificationDeliveries() {
+        if (_notificationDeliveries == null)
+            _notificationDeliveries = new NotificationDeliveriesPath(this, null, Keys.NOTIFICATION_DELIVERIES__NOTIFICATION_DELIVERIES_USER_ID_FKEY.getInverseKey());
+
+        return _notificationDeliveries;
+    }
+
     private transient RuleUsersPath _ruleUsers;
 
     /**
@@ -234,6 +268,7 @@ public class Users extends TableImpl<UsersRecord> {
     @Override
     public List<Check<UsersRecord>> getChecks() {
         return Arrays.asList(
+            Internal.createCheck(this, DSL.name("users_contacts_check"), "((jsonb_typeof(contacts) = 'object'::text))", true),
             Internal.createCheck(this, DSL.name("users_role_check"), "((role = ANY (ARRAY['TEAM_LEADER'::text, 'MEMBER'::text])))", true)
         );
     }

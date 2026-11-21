@@ -5,7 +5,7 @@ import RunbookEditor from "./RunbookEditor.jsx";
 import TeamsPage from "./TeamsPage.jsx";
 import RuleBuilder from "./RuleBuilder.jsx";
 import { OPERATORS } from "./ruleModel.js";
-import { fetchFeed } from "./api.js";
+import { fetchFeed, fetchRuleSnapshot } from "./api.js";
 
 const NAV = [
   ["overview", "Overview", Grid2X2],
@@ -89,28 +89,51 @@ function Empty({ title, text, action, actionLabel }) {
     {action && <button className="secondary-button" onClick={action}>{actionLabel || "Create rule"}</button>}</div>;
 }
 
-function RuleDetails({ rule }) {
+function RuleDetails({ rule, status }) {
   const definition = rule.definition || {};
   return <aside className="detail-panel">
     <div className="detail-eyebrow">RULE · VERSION {rule.version}</div><h2>{rule.name}</h2>
     <span className={"status-pill " + (rule.enabled ? "enabled" : "disabled")}>{rule.enabled ? "Enabled" : "Disabled"}</span>
+    <p>Engine · {status ? "v" + status.version + " " + status.state : "Awaiting snapshot"}{status?.reason && " · " + status.reason}</p>
     <section><h3>When this rule matches</h3><p className="condition-text">{conditionDescription(definition.match)}</p></section>
     <p>Owner: {rule.createdBy?.username || "System"}</p>
     <section><h3>Alert settings</h3><dl className="detail-list"><div><dt>Severity</dt><dd>{definition.severity || "medium"}</dd></div>
       <div><dt>Priority</dt><dd>{rule.priority}</dd></div><div><dt>Title</dt><dd>{definition.title || rule.name}</dd></div>
-      <div><dt>Runbook</dt><dd>{rule.runbookId || "Automatic assignment"}</dd></div>
+      <div><dt>Runbook</dt><dd>{rule.runbookId || (definition.runbookMode === "none" ? "No runbook" : "Automatic assignment")}</dd></div>
       <div><dt>Updated</dt><dd>{displayTime(rule.updatedAt)}</dd></div></dl></section>
   </aside>;
 }
 
 function RulesPage({ rules, loading, onCreate, selectedId, onSelect }) {
   const { user } = useAuth();
+  const [snapshot, setSnapshot] = useState(null);
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer;
+    async function poll() {
+      try {
+        const data = await fetchRuleSnapshot(controller.signal);
+        if (!controller.signal.aborted) { setSnapshot(data); setOffline(false); }
+      } catch {
+        if (!controller.signal.aborted) { setOffline(true); setSnapshot(null); }
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+      }
+    }
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, []);
   const [query, setQuery] = useState("");
   const shown = useMemo(() => rules.filter(rule => rule.name.toLowerCase().includes(query.toLowerCase())), [rules, query]);
   const selected = rules.find(rule => rule.id === selectedId) || shown[0] || null;
   return <div className="page-content">
     <div className="page-heading"><div><p className="eyebrow">CONTROL</p><h1>Rules</h1><p className="subtitle">Create, inspect, and manage event matching rules.</p></div>
       <button className="primary-button" onClick={onCreate}><Plus size={16} aria-hidden="true" /> {user ? "Create rule" : "Log in to create a rule"}</button></div>
+    {offline && <p role="status">Engine snapshot unavailable.</p>}
+    {snapshot?.filter(item => item.state === "skipped").map(item => <p className="warning-banner" key={item.ruleId}>
+      Skipped rule {rules.find(rule => rule.id === item.ruleId)?.name || item.ruleId} · v{item.version} · {item.reason}
+    </p>)}
     <div className="rule-workspace">
       <section className="rule-list"><div className="list-heading"><h2>Rule library <span>{rules.length}</span></h2>
         <label className="search-box"><Search size={14} aria-hidden="true" /><input aria-label="Search rules" placeholder="Search rules" value={query} onChange={event => setQuery(event.target.value)} /></label></div>
@@ -120,7 +143,7 @@ function RulesPage({ rules, loading, onCreate, selectedId, onSelect }) {
         </button>)}
         {!loading && shown.length === 0 && <Empty title="No matching rules" text={query ? "Try another search." : "Create your first rule."} action={query ? undefined : onCreate} actionLabel={user ? "Create rule" : "Log in to create a rule"} />}
       </section>
-      {selected && <RuleDetails rule={selected} />}
+      {selected && <RuleDetails rule={selected} status={snapshot?.find(item => item.ruleId === selected.id)} />}
     </div>
   </div>;
 }

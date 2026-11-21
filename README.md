@@ -27,6 +27,28 @@ docker compose --profile kafka up --build
 
 Domyślny topic to `ingest.external`; broker dostępny lokalnie pod `localhost:9092`.
 
+## Powiadomienia SMS i e-mail
+
+Po `docker compose up -d --build` panel sterowania działa pod `http://localhost:8083`, skrzynka Mailpit pod `http://localhost:8025`, a ostatnie SMS-y są dostępne przez `GET http://localhost:8084/messages`. Domyślnie usługi odbierają wiadomości lokalnie.
+
+Użytkownik włącza kanały we własnej sesji Control. Przykładowe żądania po zalogowaniu:
+
+```http
+PUT /api/me/notification-contacts/sms
+Content-Type: application/json
+
+{"address":"+12025550123"}
+
+PUT /api/me/notification-preferences
+Content-Type: application/json
+
+{"sms":{"enabled":true,"minSeverity":"high"},"email":{"enabled":true,"minSeverity":"high"}}
+```
+
+E-mail domyślnie trafia na adres użytkownika. Można go zmienić dla powiadomień przez `PUT /api/me/notification-contacts/email`. Alerty dla zespołu trafiają do jego członków. Historię zalogowanego odbiorcy zwraca `GET /api/me/notification-deliveries?alertId=<uuid>`.
+
+Zewnętrzny serwer SMTP wybiera się przez `SMTP_HOST` i `SMTP_PORT`. Dla bramki HTTP ustaw `NOTIFICATIONS_SMS_URL` i opcjonalnie `SMS_AUTHORIZATION`. Bramka otrzymuje JSON z polami `to` i `text` oraz nagłówek `Idempotency-Key`. Pełny test obu kanałów, runbooków i przeglądarki opisują [scenariusze E2E](docs/e2e/SCENARIOS.md).
+
 ## Control i wersje schematu
 
 `control` jest właścicielem migracji bazy. Przy starcie Spring Boot/Flyway sprawdza `flyway_schema_history` i stosuje tylko te migracje, których wersji jeszcze tam nie ma. Uruchom samą bazę i control (bez engine):

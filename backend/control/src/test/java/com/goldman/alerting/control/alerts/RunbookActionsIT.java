@@ -109,7 +109,7 @@ class RunbookActionsIT {
                 .set(ACTION_TYPES.APPROVAL_REQUIRED, approval).set(ACTION_TYPES.TEMPLATE, JSONB.valueOf(config.toString())).execute();
         var book = new Runbook(UUID.randomUUID(), "retry", "text", "Check workflow", workflows.stream()
                 .map(workflow -> new Runbook.Action(type, Map.of("workflowId", workflow))).toList());
-        var alert = new LiveAlert(1, "alert.created", alertId, UUID.randomUUID(), UUID.randomUUID(),
+        var alert = new LiveAlert(1, "alert.created", alertId, UUID.randomUUID().toString(), UUID.randomUUID(),
                 List.of(), List.of(), "high", "Timeout", "", 1, Instant.now(), book.id(), book);
         inbox.receive(alert, json.writeValueAsString(alert));
         return alert;
@@ -138,7 +138,7 @@ class RunbookActionsIT {
             var book = new Runbook(UUID.randomUUID(), "diagnostic", "text", "Check", List.of(
                     new Runbook.Action(type, Map.of()), new Runbook.Action(scriptName, Map.of())));
             var event = json.readTree("{\"payload\":{\"workflowId\":\"WF-42\"}}");
-            var alert = new LiveAlert(1, "alert.created", alertId, UUID.randomUUID(), UUID.randomUUID(),
+            var alert = new LiveAlert(1, "alert.created", alertId, UUID.randomUUID().toString(), UUID.randomUUID(),
                     List.of(), List.of(), "high", "Timeout", "", 1, Instant.now(), book.id(), book, event);
             release.countDown();
             inbox.receive(alert, json.writeValueAsString(alert));

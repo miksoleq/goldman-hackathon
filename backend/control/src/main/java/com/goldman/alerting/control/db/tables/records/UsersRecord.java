@@ -9,6 +9,7 @@ import com.goldman.alerting.control.db.tables.Users;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.jooq.JSONB;
 import org.jooq.Record1;
 import org.jooq.impl.UpdatableRecordImpl;
 
@@ -147,6 +148,20 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         return (String) get(8);
     }
 
+    /**
+     * Setter for <code>public.users.contacts</code>.
+     */
+    public void setContacts(JSONB value) {
+        set(9, value);
+    }
+
+    /**
+     * Getter for <code>public.users.contacts</code>.
+     */
+    public JSONB getContacts() {
+        return (JSONB) get(9);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -170,7 +185,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
     /**
      * Create a detached, initialised UsersRecord
      */
-    public UsersRecord(UUID id, String username, String displayName, String email, String phone, String timezone, OffsetDateTime createdAt, String passwordHash, String role) {
+    public UsersRecord(UUID id, String username, String displayName, String email, String phone, String timezone, OffsetDateTime createdAt, String passwordHash, String role, JSONB contacts) {
         super(Users.USERS);
 
         setId(id);
@@ -182,6 +197,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         setCreatedAt(createdAt);
         setPasswordHash(passwordHash);
         setRole(role);
+        setContacts(contacts);
         resetChangedOnNotNull();
     }
 }

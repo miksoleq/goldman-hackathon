@@ -93,3 +93,7 @@ Python steps pause for a signed-in operator by default. The execution snapshot r
 ### Editing shared runbooks
 
 Any signed-in user can read a full definition with `GET /api/runbooks/{id}` and save the same `kind: Runbook` resource used by `POST /api/apply` with `PUT /api/runbooks/{id}`. Send the ETag from the detail response in If-Match. An outdated tag returns 412, a missing tag returns 428 and a duplicate name returns 409. Each edit records the actor and republishes every linked rule with its new runbook snapshot in the same transaction. Alerts already in the inbox retain their instructions and action executions. RunbookEditorIT covers the HTTP and outbox contracts.
+
+### Outbound alert delivery
+
+Control records one delivery per new alert, recipient and enabled channel. Personal preferences override team settings. Email and SMS require opt-in and a matching severity. Missing contact details produce a skipped delivery. Control snapshots the address and body before sending, and retries transient provider errors up to five times. The default quota is ten deliveries per recipient and channel per five minutes. SMS retries reuse the delivery UUID. SMTP acceptance confirms receipt by the relay. See DeliveryQueueIT, DeliveryPolicyTest and scripts/test-notification-flow.py.

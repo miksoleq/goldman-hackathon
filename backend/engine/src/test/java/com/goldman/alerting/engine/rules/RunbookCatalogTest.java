@@ -25,7 +25,8 @@ class RunbookCatalogTest {
     }
 
     private RunbookCandidate book(String name, String match) throws Exception {
-        return new RunbookCandidate(new Runbook(UUID.randomUUID(), name, "text", "{{rule.name}} {{payload.code}}"),
+        return new RunbookCandidate(new Runbook(UUID.randomUUID(), name, "text", "{{rule.name}} {{payload.code}}",
+                List.of(new Runbook.Action("http_get", java.util.Map.of("url", "https://example.test/{{payload.code}}")))),
                 mapper.readTree(match));
     }
 
@@ -50,6 +51,7 @@ class RunbookCatalogTest {
             var winner = catalog.select(rule, event);
             assertEquals(alpha.runbook().id(), winner.id());
             assertEquals("Payments 42", winner.content());
+            assertEquals("https://example.test/42", winner.actions().getFirst().params().get("url"));
         }
         catalog.replace(List.of(beta));
         assertEquals(beta.runbook().id(), catalog.select(rule, event).id());

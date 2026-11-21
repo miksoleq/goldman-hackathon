@@ -44,6 +44,10 @@ services:
     ports:
       - "127.0.0.1:8082:8082"
     environment:
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      NOTIFICATIONS_SMS_URL: ${NOTIFICATIONS_SMS_URL:-http://sms-mock:8080/messages}
+      SMS_AUTHORIZATION: ${SMS_AUTHORIZATION:-}
       RULES_REDIS_CHANNEL: ${RULES_REDIS_CHANNEL:-rules.created.v1}
       RULES_REDIS_ENABLED: ${RULES_REDIS_ENABLED:-true}
       REDIS_HOST: redis
@@ -57,6 +61,20 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.21.8
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+
+  sms-mock:
+    image: python:3.13-alpine
+    command: ["python", "/app/server.py"]
+    ports:
+      - "127.0.0.1:${SMS_MOCK_PORT:-8084}:8080"
+    volumes:
+      - ./scripts/sms-mock/server.py:/app/server.py:ro
+      - sms_data:/data
 
   workflow-demo:
     image: python:3.13-alpine
@@ -163,6 +181,7 @@ networks:
     internal: true
 
 volumes:
+  sms_data:
   redis_data:
   postgres_data:
   maven_cache:

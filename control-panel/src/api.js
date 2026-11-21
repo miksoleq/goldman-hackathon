@@ -11,6 +11,14 @@ export async function fetchFeed(name, request = sessionRequest) {
   return items;
 }
 
+export async function fetchRuleSnapshot(signal, request = sessionRequest) {
+  const response = await request("/api/engine/snapshot", { signal, cache: "no-store" });
+  if (!response.ok) throw new Error("Engine unavailable");
+  const statuses = await response.json();
+  if (!Array.isArray(statuses)) throw new Error("Invalid engine snapshot");
+  return statuses;
+}
+
 export async function createRule(payload, request = sessionRequest) {
   const response = await request("/api/rules", {
     method: "POST",

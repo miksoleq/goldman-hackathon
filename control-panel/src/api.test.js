@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRule, fetchFeed } from "./api.js";
+import { createRule, fetchFeed, fetchRuleSnapshot } from "./api.js";
 
 test("loads monitor feeds and validates their shape", async () => {
   let requested;
@@ -46,4 +46,16 @@ test("session requests send the same-origin cookie and signal expired sessions",
     if (previous === undefined) delete globalThis.window;
     else globalThis.window = previous;
   }
+});
+
+test("reads current Engine rule states and rejects unavailable or malformed snapshots", async () => {
+  const statuses = [{ ruleId: "rule-1", state: "skipped", version: 3, reason: "Unknown operator" }];
+  const signal = new AbortController().signal;
+  assert.deepEqual(await fetchRuleSnapshot(signal, async (url, options) => {
+    assert.equal(url, "/api/engine/snapshot");
+    assert.equal(options.signal, signal);
+    return { ok: true, json: async () => statuses };
+  }), statuses);
+  await assert.rejects(fetchRuleSnapshot(signal, async () => ({ ok: false })), /unavailable/);
+  await assert.rejects(fetchRuleSnapshot(signal, async () => ({ ok: true, json: async () => ({}) })), /Invalid/);
 });

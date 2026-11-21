@@ -52,7 +52,7 @@ class AlertSpecTest {
         var step = new com.goldman.alerting.contracts.Runbook.Action("retry_workflow",
                 java.util.Map.of("workflowId", "wf-{{payload.id}}"));
         var book = new com.goldman.alerting.contracts.Runbook(java.util.UUID.randomUUID(), "book", "text", "Check", List.of(step));
-        var spec = AlertSpec.compile("id", "rule", List.of(), List.of(), mapper.createObjectNode(), book);
+        var spec = AlertSpec.compile("id", "rule", List.of(), List.of(), mapper.createObjectNode(), book, book.id());
         assertEquals("wf-42", spec.runbook().apply(mapper.readTree("{\"payload\":{\"id\":42}}"))
                 .actions().getFirst().params().get("workflowId"));
         assertEquals("", spec.runbook().apply(mapper.readTree("{\"payload\":{}}"))

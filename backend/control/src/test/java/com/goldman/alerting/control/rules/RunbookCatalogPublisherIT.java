@@ -17,6 +17,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import static com.goldman.alerting.control.db.Tables.RUNBOOKS;
 import static org.junit.jupiter.api.Assertions.*;
 
+@org.springframework.test.annotation.DirtiesContext
 @SpringBootTest(properties = {"rules.redis.enabled=true", "runbooks.catalog.poll-ms=100"})
 class RunbookCatalogPublisherIT {
     private static final String CHANNEL = "it:catalog:" + UUID.randomUUID();
