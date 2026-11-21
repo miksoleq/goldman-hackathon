@@ -26,8 +26,11 @@ try {
   console.log("ready");
   for await (const command of createInterface({ input: process.stdin })) {
     if (command === "refresh") {
-      await Promise.all(Object.values(views).map(({ page }) =>
-        page.getByRole("button", { name: /^Refresh( data)?$/ }).click()));
+      await Promise.all(Object.values(views).map(async ({ page }) => {
+        await page.getByRole("button", { name: /^Refresh( data)?$/ }).click();
+        // After both profiles, the diagnostic must fit both batches of rows.
+        await page.setViewportSize({ width: 1440, height: 16000 });
+      }));
     }
     const snapshot = {};
     for (const [name, { titles }] of Object.entries(views)) {
