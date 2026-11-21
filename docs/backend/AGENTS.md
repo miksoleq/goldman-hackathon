@@ -34,6 +34,10 @@ After the first successful run, record prerequisites, required environment varia
 
 Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the rule transaction integration test, point `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` at a disposable PostgreSQL database and run `mvn -pl control -Dtest=RulePersistenceIT test`. Flyway creates the schema. The test writes fixtures and inspects the pending outbox, so use a database dedicated to the test with no other publisher running.
 
+### Engine tests
+
+With Redis available at `localhost:6379` (or configured through `REDIS_HOST` and `REDIS_PORT`), run `mvn -B -ntp -pl engine -am verify` from `backend/`. This runs unit and Redis integration tests; verified with JDK 25 and Redis 7.4.
+
 ### Regenerate the control jOOQ model
 
 Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. From `backend/`, run `mvn -pl contracts -am install` to make the shared JAR available to the generator. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.

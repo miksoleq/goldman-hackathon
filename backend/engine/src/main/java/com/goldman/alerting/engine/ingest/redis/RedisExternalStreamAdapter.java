@@ -4,6 +4,7 @@ import com.goldman.alerting.engine.ingest.IngestionService;
 import com.goldman.alerting.engine.ingest.InvalidJsonException;
 import com.goldman.alerting.engine.ingest.PayloadTooLargeException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.ApplicationArguments;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.core.RedisCallback;
@@ -50,6 +52,9 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
         this.externalStream = externalStream;
         this.consumerGroup = consumerGroup;
         this.consumerName = consumerName;
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("ingest.redis.batch-size must be positive");
+        }
         this.batchSize = batchSize;
     }
 
@@ -88,15 +93,18 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             return;
         }
 
+        List<RecordId> acknowledged = new ArrayList<>(records.size());
         for (MapRecord<String, String, String> record : records) {
-            processRecord(streams, record);
+            if (processRecord(record)) {
+                acknowledged.add(record.getId());
+            }
+        }
+        if (!acknowledged.isEmpty()) {
+            streams.acknowledge(externalStream, consumerGroup, acknowledged.toArray(RecordId[]::new));
         }
     }
 
-    private void processRecord(
-            StreamOperations<String, String, String> streams,
-            MapRecord<String, String, String> record
-    ) {
+    private boolean processRecord(MapRecord<String, String, String> record) {
         Map<String, String> fields = record.getValue();
         String rawPayload = fields.get("payload");
         try {
@@ -105,15 +113,15 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             }
             String source = stringField(fields.get("source"), externalStream);
             ingestionService.accept(source, "redis-stream", rawPayload);
-            streams.acknowledge(externalStream, consumerGroup, record.getId());
+            return true;
         } catch (RuntimeException exception) {
             if (rawPayload == null || exception instanceof InvalidJsonException
                     || exception instanceof PayloadTooLargeException) {
                 logger.warn("Dropping invalid Redis ingest record {}", record.getId());
-                streams.acknowledge(externalStream, consumerGroup, record.getId());
-                return;
+                return true;
             }
             logger.error("Could not forward Redis ingest record {}", record.getId(), exception);
+            return false;
         }
     }
 
