@@ -119,7 +119,7 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
         <option value="auto">Use automatic assignment</option><option value="none">No runbook</option>
         {runbooks.filter(item => item.enabled).map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
       </select><span className="field-help">Attach step-by-step instructions or automated actions shown when this alert fires.</span></label>
-      <p className="field-help">The runbook selection is saved with the rule. Engine does not currently attach it to generated alerts.</p>
+      <p className="field-help">New alerts include the instructions and actions from the assigned runbook.</p>
     </section>
     <details className="settings-section advanced-settings"><summary>Noise control &amp; advanced settings</summary>
       <div className="settings-heading"><h3>Deduplication</h3><p>Configure how duplicate events are identified within a time window.</p>

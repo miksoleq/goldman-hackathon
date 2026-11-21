@@ -65,7 +65,8 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
                     bytes("MKSTREAM")
             ));
         } catch (RuntimeException exception) {
-            if (!String.valueOf(exception.getMessage()).contains("BUSYGROUP")) {
+            var cause = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(exception);
+            if (!String.valueOf(cause.getMessage()).startsWith("BUSYGROUP")) {
                 throw exception;
             }
         }

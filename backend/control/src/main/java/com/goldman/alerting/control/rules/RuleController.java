@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.UUID;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -30,10 +32,7 @@ class RuleController {
     @ResponseStatus(HttpStatus.CREATED)
     Object create(HttpServletRequest request) throws IOException {
         var owner = accounts.require(request).ref();
-        int limit = 1024 * 1024;
-        byte[] bytes = request.getInputStream().readNBytes(limit + 1);
-        if (bytes.length > limit) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
-        String source = new String(bytes, StandardCharsets.UTF_8);
+        String source = readDocument(request);
         var root = parser.read(source);
         String kind = root.path("kind").asText("");
         if (request.getServletPath().equals("/api/apply") && (kind.equals("ActionType") || kind.equals("Runbook"))) {
@@ -45,12 +44,54 @@ class RuleController {
                 catalog.registerPython(name.asText(), spec, owner.username());
                 return Map.of("kind", kind, "name", name.asText());
             }
-            if (java.util.Set.of("auto", "none").contains(name.asText()) || spec.has("name")) {
-                throw new IllegalArgumentException("Invalid runbook name");
-            }
-            return creation.createBook(name.asText(), parser.parseBook(spec), owner.username());
+            return creation.createBook(runbookName(root), parser.parseBook(spec), owner.username());
         }
         return creation.create(parser.parse(root), source, owner);
+    }
+
+    private String readDocument(HttpServletRequest request) throws IOException {
+        int limit = 1024 * 1024;
+        byte[] bytes = request.getInputStream().readNBytes(limit + 1);
+        if (bytes.length > limit) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    @GetMapping("/action-types")
+    List<ActionCatalog.Option> actionTypes(HttpServletRequest request) {
+        accounts.require(request);
+        return catalog.options();
+    }
+
+    @GetMapping("/runbooks/{id}")
+    ResponseEntity<?> book(@PathVariable("id") UUID id, HttpServletRequest request) {
+        accounts.require(request);
+        return response(creation.readBook(id));
+    }
+
+    @PutMapping(path="/runbooks/{id}", consumes=MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<?> update(@PathVariable("id") UUID id,
+                             @RequestHeader(value="If-Match", required=false) String expected,
+                             HttpServletRequest request) throws IOException {
+        String actor = accounts.require(request).username();
+        if (expected == null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.PRECONDITION_REQUIRED);
+        String source = readDocument(request);
+        var root = parser.read(source);
+        if (!"Runbook".equals(root.path("kind").textValue())) throw new IllegalArgumentException("Expected kind Runbook");
+        var name = runbookName(root);
+        return response(creation.updateBook(id, expected, name, parser.parseBook(root.get("spec")), actor));
+    }
+
+    private static String runbookName(ObjectNode root) {
+        var name = root.path("name").textValue();
+        if (root.size() != 3 || name == null || name.isBlank() || java.util.Set.of("auto", "none").contains(name)
+                || !root.path("spec").isObject() || root.path("spec").has("name")) {
+            throw new IllegalArgumentException("Expected runbook name and spec");
+        }
+        return name;
+    }
+
+    private static ResponseEntity<?> response(RuleCreation.BookEdition edition) {
+        return ResponseEntity.ok().eTag(edition.etag()).body(edition.book());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

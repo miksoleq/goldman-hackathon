@@ -28,6 +28,19 @@ class RuleDocumentTest {
         assertThat(action.timeoutMs()).isEqualTo(5000);
     }
 
+    @Test void validatesYamlInstructionsWithoutReserializingTheSource() throws Exception {
+        var parser = new RuleDocument();
+        var spec = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("format", "yaml");
+        var content = "steps:\n  - 'Review {{payload.id}}'\n";
+        assertThat(parser.parseBook(spec.put("content", content)).content()).isEqualTo(content);
+        for (var bad : java.util.List.of("steps: [", "a: 1\na: 2", "a: 1\n---\nb: 2")) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> parser.parseBook(spec.put("content", bad)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("line");
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> parser.parseBook(spec.put("format", "url")
+                .put("content", "https://example.test"))).hasMessageContaining("format");
+    }
+
     @Test
     void validatesAttachedInstructions() throws Exception {
         var parser = new RuleDocument();

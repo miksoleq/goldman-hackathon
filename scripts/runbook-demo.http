@@ -7,6 +7,12 @@
 @engine = http://localhost:8081
 @team = smoke-alerts
 
+### Zaloguj się. Klient HTTP zachowa ciasteczko sesji dla kolejnych żądań.
+POST {{control}}/api/auth/login
+Content-Type: application/json
+
+{"username":"demo.member","password":"Runbook123!"}
+
 ### 1. Utwórz regułę z nową instrukcją (201). Kliknięcie rozpoczyna nowy przebieg.
 # W treści JSON zapis \u007b oznacza znak {. Dzięki temu IntelliJ zostawia szablon dla Engine.
 < {%

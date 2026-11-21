@@ -28,3 +28,22 @@ test("posts a rule as JSON and surfaces duplicate and validation errors", async 
   await assert.rejects(createRule({}, async () => ({ ok: false, status: 409, json: async () => ({}) })), /already exists/);
   await assert.rejects(createRule({}, async () => ({ ok: false, status: 400, json: async () => ({ message: "Bad field" }) })), /Bad field/);
 });
+
+test("session requests send the same-origin cookie and signal expired sessions", async () => {
+  const { sessionRequest } = await import("../../web-shared/session.js");
+  const events = new EventTarget();
+  let expired = false;
+  events.addEventListener("session-expired", () => { expired = true; });
+  const previous = globalThis.window;
+  globalThis.window = events;
+  try {
+    await sessionRequest("/api/rules", { method: "POST" }, async (url, options) => {
+      assert.equal(options.credentials, "same-origin");
+      return { status: 401 };
+    });
+    assert.equal(expired, true);
+  } finally {
+    if (previous === undefined) delete globalThis.window;
+    else globalThis.window = previous;
+  }
+});

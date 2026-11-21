@@ -30,6 +30,7 @@
 .preview-content strong { color: var(--navy); font-size: 14px; }.preview-content p { margin: 0; font-size: 12px; white-space: pre-wrap; }
 .preview-content small { color: var(--muted); font-size: 11px; }
 .preview-severity { display: flex; align-items: center; gap: 6px; font-size: 11px; text-transform: capitalize; }
+.preview-severity .severity-dot { position: static; flex: 0 0 8px; margin: 0; transform: none; }
 .advanced-settings summary { color: var(--navy); font-size: 15px; font-weight: 600; cursor: pointer; }
 .advanced-settings[open] summary { margin-bottom: 16px; }
 @media (max-width: 600px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } .settings-grid .span-all { grid-column: auto; } }

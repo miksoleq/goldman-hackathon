@@ -1,4 +1,5 @@
 async page => {
+  await page.route("**/api/teams", route => route.fulfill({ json: [{ name: "Demo" }] }));
   await page.reload();
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Rule name").fill("Browser test");
@@ -14,7 +15,8 @@ async page => {
   await page.getByLabel("Field name").last().fill("status");
   await page.getByLabel("Value", { exact: true }).last().fill("failed");
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByLabel("Teams").fill("Demo");
+  await page.getByRole("combobox", { name: "Teams" }).fill("Demo");
+  await page.getByRole("button", { name: "Demo", exact: true }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   let sent;
   await page.route("**/api/rules", async route => {

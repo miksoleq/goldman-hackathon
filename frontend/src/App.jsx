@@ -1,15 +1,15 @@
+import { AccountMenu } from "../../web-shared/Auth.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
+import RunbookActions from "./RunbookActions.jsx";
 import { FEED_NAMES, fetchMonitorFeed } from "./api.js";
 
 const EMPTY_MESSAGES = {
-  messages: "No messages have been received.",
   rules: "No rules are available in Control.",
   runbooks: "No runbooks are configured.",
-  alerts: "No alerts have been received during this Control session."
+  alerts: "No alerts have been received yet."
 };
 
 const SECTIONS = [
-  { id: "messages", label: "Messages" },
   { id: "rules", label: "Rules" },
   { id: "runbooks", label: "Runbooks" },
   { id: "alerts", label: "Alerts" }
@@ -27,7 +27,6 @@ function formatDate(value) {
 }
 
 function itemId(section, item) {
-  if (section === "messages") return item.envelope?.eventId || item.streamId;
   if (section === "alerts") return item.alertId;
   return item.id;
 }
@@ -36,39 +35,18 @@ function severity(item) {
   return String(item.severity || "info").toLowerCase();
 }
 
-function messageTitle(item) {
-  const payload = item.envelope?.payload;
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    const service = payload.service;
-    const event = payload.type || payload.eventType || payload.code || payload.name;
-    if (service && event) return service + " · " + event;
-    if (service || event) return String(service || event);
-  }
-  if (item.envelope?.eventId) return "Event " + item.envelope.eventId;
-  return "JSON message";
-}
-
 function itemTitle(section, item) {
-  if (section === "messages") return messageTitle(item);
   if (section === "alerts") return item.title || "Untitled alert";
   return item.name || (section === "rules" ? "Untitled rule" : "Untitled runbook");
 }
 
 function itemMeta(section, item) {
-  if (section === "messages") {
-    const envelope = item.envelope || {};
-    return formatDate(envelope.receivedAt) + " · " + String(envelope.adapter || "unknown").toUpperCase();
-  }
-  if (section === "rules") return "Version " + item.version + " · Priority " + item.priority;
+  if (section === "rules") return "Owner: " + (item.createdBy?.username || "System") + " · Version " + item.version + " · Priority " + item.priority;
   if (section === "runbooks") return item.format || "Runbook";
-  return formatDate(item.occurredAt);
+  return [formatDate(item.occurredAt), ...(item.teamIds || []).map(id => "Team " + id)].join(" · ");
 }
 
 function itemStatus(section, item) {
-  if (section === "messages") {
-    const count = item.envelope?.matchedRuleIds?.length || 0;
-    return count ? count + (count === 1 ? " rule matched" : " rules matched") : "No match";
-  }
   if (section === "rules" || section === "runbooks") return item.enabled ? "Enabled" : "Disabled";
   return severity(item);
 }
@@ -106,24 +84,6 @@ function RelatedRules({ ids, rules, onNavigate }) {
   );
 }
 
-function MessageDetails({ item, rules, onNavigate }) {
-  const envelope = item.envelope || {};
-  const matches = envelope.matchedRuleIds || [];
-  return (
-    <>
-      <div className="detail-eyebrow">
-        {String(envelope.adapter || "Unknown").toUpperCase()} message · {formatDate(envelope.receivedAt)}
-      </div>
-      <h2>{messageTitle(item)}</h2>
-      <Field label="JSON payload" code>{JSON.stringify(envelope.payload, null, 2)}</Field>
-      <div className="field-label">Matched rules</div>
-      {matches.length
-        ? <RelatedRules ids={matches} rules={rules} onNavigate={onNavigate} />
-        : <p>No rule matched this message.</p>}
-    </>
-  );
-}
-
 function RuleDetails({ item, runbooks, onNavigate }) {
   const runbook = runbooks.find(candidate => candidate.id === item.runbookId);
   return (
@@ -132,6 +92,7 @@ function RuleDetails({ item, runbooks, onNavigate }) {
         {item.enabled ? "Enabled" : "Disabled"} · Version {item.version}
       </div>
       <h2>{item.name || "Untitled rule"}</h2>
+      <p>Owner: {item.createdBy?.username || "System"}</p>
       <p>Priority {item.priority}</p>
       <Field label="Rule definition" code>{item.sourceYaml}</Field>
       {item.runbookId && (
@@ -163,8 +124,7 @@ function RunbookDetails({ item }) {
   );
 }
 
-function AlertDetails({ item, messages, rules, runbooks, onNavigate }) {
-  const source = messages.find(candidate => itemId("messages", candidate) === item.eventId);
+function AlertDetails({ item, rules, runbooks, onNavigate, onRefresh }) {
   const rule = rules.find(candidate => candidate.id === item.ruleId);
   const runbook = runbooks.find(candidate => candidate.id === item.runbookId);
   const unassigned = !item.runbookId || item.runbookId === "00000000-0000-0000-0000-000000000000";
@@ -178,10 +138,6 @@ function AlertDetails({ item, messages, rules, runbooks, onNavigate }) {
       <div className="detail-eyebrow">Alert · {severity(item).toUpperCase()}</div>
       <h2>{item.title || "Untitled alert"}</h2>
       {item.body && <p>{item.body}</p>}
-      <div className="field-label">Source message</div>
-      {source
-        ? <RelatedButton label={messageTitle(source)} section="messages" id={item.eventId} onNavigate={onNavigate} />
-        : <p>{item.eventId || "Unknown event"}</p>}
       <div className="field-label">Matching rule</div>
       {rule
         ? <RelatedButton label={rule.name} section="rules" id={rule.id} onNavigate={onNavigate} />
@@ -194,6 +150,8 @@ function AlertDetails({ item, messages, rules, runbooks, onNavigate }) {
       {runbook
         ? <RelatedButton label={runbook.name} section="runbooks" id={runbook.id} onNavigate={onNavigate} />
         : <p>{unassigned ? "Not assigned" : "Runbook is unavailable."}</p>}
+      {item.runbook?.content && <Field label="Instructions" code>{item.runbook.content}</Field>}
+      {item.runbook?.actions?.length > 0 && <RunbookActions key={item.alertId} alert={item} onRefresh={onRefresh} />}
     </>
   );
 }
@@ -236,7 +194,7 @@ function EmptyState({ children }) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("messages");
+  const [activeTab, setActiveTab] = useState("alerts");
   const [selectedIds, setSelectedIds] = useState({});
   const [feeds, setFeeds] = useState(() =>
     Object.fromEntries(FEED_NAMES.map(name => [name, { items: null, error: null }]))
@@ -244,6 +202,8 @@ function App() {
   const [connection, setConnection] = useState("Connecting");
   const [lastUpdated, setLastUpdated] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState("all");
+  const [query, setQuery] = useState("");
   const refreshingRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -317,9 +277,14 @@ function App() {
   }
 
   const feed = feeds[activeTab];
-  const items = feed.items || [];
-  const selected = items.find(item => itemId(activeTab, item) === selectedIds[activeTab]) || items[0];
+  const sectionItems = feed.items || [];
   const rules = feeds.rules.items || [];
+  const items = activeTab === "alerts" ? sectionItems.filter(item => {
+    const ruleName = rules.find(rule => rule.id === item.ruleId)?.name || "";
+    const searchable = [item.title, item.body, ruleName].filter(Boolean).join(" ").toLowerCase();
+    return (severityFilter === "all" || severity(item) === severityFilter) && searchable.includes(query.trim().toLowerCase());
+  }) : sectionItems;
+  const selected = items.find(item => itemId(activeTab, item) === selectedIds[activeTab]) || items[0];
   const runbooks = feeds.runbooks.items || [];
   const connectionState = {
     Live: "live",
@@ -330,13 +295,12 @@ function App() {
   }[connection];
 
   function details(item) {
-    if (activeTab === "messages") return <MessageDetails item={item} rules={rules} onNavigate={navigate} />;
     if (activeTab === "rules") return <RuleDetails item={item} runbooks={runbooks} onNavigate={navigate} />;
     if (activeTab === "runbooks") return <RunbookDetails item={item} />;
     return (
       <AlertDetails
         item={item}
-        messages={feeds.messages.items || []}
+        onRefresh={refresh}
         rules={rules}
         runbooks={runbooks}
         onNavigate={navigate}
@@ -349,6 +313,7 @@ function App() {
       <header className="app-header">
         <h1>Event Monitor</h1>
         <div className="header-actions">
+          <AccountMenu />
           <div className="connection" data-state={connectionState} role="status" aria-live="polite">
             <span className="connection-mark" aria-hidden="true" />
             <span>{connection}</span>
@@ -360,7 +325,7 @@ function App() {
       </header>
       <main>
         <div className="intro">
-          <p>Review incoming messages and the rules, runbooks, and alerts connected to them.</p>
+          <p>Review alerts, their runbooks, and routing rules.</p>
           <p className="updated">{lastUpdated && "Updated " + lastUpdated}</p>
         </div>
         <nav className="section-tabs" role="tablist" aria-label="Monitor sections">
@@ -386,6 +351,9 @@ function App() {
           role="tabpanel"
           aria-labelledby={"tab-" + activeTab}
         >
+          {activeTab === "alerts" && <div className="alert-toolbar"><label>Search alerts<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Title, message, or rule" /></label>
+            <label>Severity<select value={severityFilter} onChange={event => setSeverityFilter(event.target.value)}><option value="all">All severities</option>{["critical", "high", "medium", "low", "info"].map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></label>
+            <span>{items.length} of {sectionItems.length} alerts</span></div>}
           {feed.error && (
             <div className="error-state feed-error" role="alert">
               <strong>{activeTab[0].toUpperCase() + activeTab.slice(1)} unavailable</strong>
@@ -398,7 +366,7 @@ function App() {
               ? null
               : <div className="loading-state">Loading {activeTab}…</div>
             : items.length === 0
-              ? <EmptyState>{EMPTY_MESSAGES[activeTab]}</EmptyState>
+              ? <EmptyState>{activeTab === "alerts" && sectionItems.length ? "No alerts match these filters." : EMPTY_MESSAGES[activeTab]}</EmptyState>
               : (
                 <div className="workspace">
                   <ItemList

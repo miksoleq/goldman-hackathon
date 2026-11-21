@@ -1,0 +1,12 @@
+.account-menu { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; font-size: .85rem; }
+.account-role { border-radius: 4px; background: #e8f1fa; color: #163e64; padding: .25rem .45rem; }
+.account-menu button, .account-form button { cursor: pointer; color: #143e69; border: 1px solid #9aafc3; background: white; border-radius: 4px; padding: .42rem .7rem; font: inherit; }
+.account-dialog { border: 1px solid #c2cfdb; border-radius: 8px; padding: 1.5rem; color: #172b3d; width: min(25rem, 90vw); }
+.account-dialog::backdrop { background: #182c4266; }
+.account-form { display: grid; gap: 1rem; width: min(100%, 28rem); padding: 1rem 0; }
+.account-form h2 { margin: 0; }
+.account-form label { display: grid; gap: .35rem; }
+.account-form input { padding: .55rem; border: 1px solid #96a9bb; border-radius: 4px; font: inherit; }
+.account-form fieldset { display: flex; flex-wrap: wrap; gap: .5rem; border: 0; padding: 0; }
+.account-form legend { margin-bottom: .5rem; }
+.account-form button[type=submit] { background: #153e62; color: white; }

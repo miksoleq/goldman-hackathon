@@ -1,5 +1,5 @@
 async page => {
-  await page.goto("http://127.0.0.1:8083/");
+  await page.goto(new URL("/", page.url()).href);
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Rule name").fill("Suggestion check");
   await page.getByLabel("Field name").fill("amount");
@@ -9,10 +9,10 @@ async page => {
   await teams.fill("de");
   if (await page.getByRole("listbox", { name: "Teams results" }).count()) throw Error("Suggestions appeared too early");
   await teams.fill("dem");
-  await page.getByRole("button", { name: "demo-market-risk", exact: true }).waitFor();
-  await page.getByRole("button", { name: "demo-market-risk", exact: true }).click();
+  await page.getByRole("button", { name: "demo-operations", exact: true }).waitFor();
+  await page.getByRole("button", { name: "demo-operations", exact: true }).click();
   const users = page.getByRole("combobox", { name: "Users" });
   await users.fill("demo");
-  await page.getByRole("button", { name: "demo-alex", exact: true }).waitFor();
+  await page.getByRole("button", { name: "demo.analyst", exact: true }).waitFor();
   return "Live recipient suggestions verified";
 }

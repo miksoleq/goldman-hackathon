@@ -104,13 +104,15 @@ class RuleDocument {
         boolean stepsOnly = book.has("steps");
         String format = stepsOnly && !book.has("format") ? "text" : name(book.get("format"), "runbook.format");
         String content = stepsOnly && !book.has("content") ? "" : name(book.get("content"), "runbook.content");
-        require(Set.of("markdown", "text", "url").contains(format), "Invalid runbook format");
-        if (format.equals("url")) {
-            var uri = java.net.URI.create(content);
-            require(uri.getHost() != null && Set.of("http", "https").contains(uri.getScheme()), "Expected HTTP(S) URL");
-        } else {
-            checkTemplate(content);
+        require(Set.of("markdown", "text", "yaml").contains(format), "Invalid runbook format");
+        if (format.equals("yaml")) {
+            try {
+                require(!yaml.readTree(content).isMissingNode(), "Expected YAML instructions");
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw invalid("Invalid YAML instructions at line " + e.getLocation().getLineNr());
+            }
         }
+        checkTemplate(content);
         return new InlineBook(format, content, actions(book.get(stepsOnly ? "steps" : "actions")));
     }
 

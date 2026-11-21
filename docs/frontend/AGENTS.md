@@ -28,3 +28,15 @@ For features and bug fixes, add or update automated unit tests for changed UI lo
 - **Browser verification:** Use playwright-cli open http://localhost:8080, navigate the Messages, Rules, Runbooks, and Alerts tabs, inspect an item, then resize the page to a narrow viewport.
 
 The npm unit and build commands and the full backend Compose test suite passed before the latest rebase. Full Compose services are running, and `playwright-cli open http://localhost:8080` loaded the Event Monitor page. Cross-section interaction, mobile layout, console, and network checks were not completed after the rebase.
+
+### Runbook action checks
+
+In `frontend/`, `npm test` runs the API client tests and the React interaction tests for automatic results, manual confirmation, cancellation and unavailable steps. Run `npm run build` for the production bundle. To observe an automatically executed local runbook use `./scripts/test-alert-flow.sh --prepare` from the repository root with the Compose frontend running.
+
+### Control Panel account checks
+
+In `control-panel/` run `npm test`, `npm run build` and `npm run test:e2e`. The browser suite uses Chrome and the local Docker Control Panel on port 8083. Compose supplies the shared React session components to both frontend builds.
+
+### Runbook editor checks
+
+Verified with Node.js 24 and Chrome using the production bundles of both web apps. In `control-panel/` run `npm test`, `npm run build` and `npm run test:e2e` against a demo stack with rule distribution enabled. The editor scenarios cover all three instruction formats, preserved drafts after conflicts, and a YAML runbook attached through the rule wizard. They check both alert snapshots in Event Monitor. Set `PANEL_URL`, `MONITOR_PORT` and `ENGINE_PORT` for a stack on custom ports.

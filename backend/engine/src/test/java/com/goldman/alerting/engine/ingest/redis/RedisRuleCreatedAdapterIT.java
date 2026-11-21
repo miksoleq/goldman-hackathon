@@ -44,6 +44,18 @@ class RedisRuleCreatedAdapterIT {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Test void preservesExistingExternalConsumerGroupOnRestart() {
+        String external = "test:external:" + UUID.randomUUID();
+        try {
+            var adapter = new RedisExternalStreamAdapter(redis, ingestion, external, "engine", "first", 1);
+            adapter.run(null);
+            adapter.run(null);
+            assertEquals(1, redis.opsForStream().groups(external).size());
+        } finally {
+            redis.delete(external);
+        }
+    }
+
     private static final String stream = "it:events:" + UUID.randomUUID();
     @org.springframework.test.context.DynamicPropertySource
     static void streamProperty(org.springframework.test.context.DynamicPropertyRegistry registry) {

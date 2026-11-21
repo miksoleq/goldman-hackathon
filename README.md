@@ -117,6 +117,30 @@ Nie ma jeszcze konsumenta `events:ingest`, odzyskiwania niepotwierdzonych wpisó
 
 Warunek `jsonSchema` porównuje strukturę danych pod wskazaną ścieżką. Identyfikatory dopasowanych reguł trafiają do `matchedRuleIds`. [Przykładowa reguła i obsługiwane elementy schematu](docs/backend/business-decisions/2026-11-21-json-schema-matching.md).
 
+### Konta demonstracyjne i uprawnienia
+
+W [Control Panel](http://localhost:8083) i [Event Monitor](http://localhost:8080) wybierz **Log in**. Logowanie działa przez nazwę użytkownika lub e-mail w postaci `login@example.test`. Konta demo mają hasło `Runbook123!`.
+
+| Login | Rola | Możliwości |
+|---|---|---|
+| `demo.leader` | Team Leader | Tworzenie reguł i zarządzanie składem przypisanego zespołu |
+| `demo.member` | Member | Tworzenie reguł i przeglądanie składów zespołów |
+| `demo.analyst` | Member | Konto do demonstracji przypisania w widoku Teams |
+
+Migracja V10 zakłada konta demo z hashami bcrypt i zespół `demo-operations`. W Control Panel otwórz **Teams**. Lider zobaczy od razu przypisany zespół (dla `demo.leader` jest to `demo-operations`) i może wyszukać użytkownika. Przypisanie lidera zapisuje się w `team_members` jako `role=lead`. Lider zobaczy **Assign** lub **Remove**. Oba interfejsy pokazują właściciela reguły. Reguły sprzed migracji mają właściciela **System**.
+
+Control wystawia sesję z ciasteczkiem HttpOnly i SameSite=Strict. Sesja działa po odświeżeniu strony, wygasa po 8 godzinach bezczynności i kończy się po wylogowaniu lub restarcie procesu Control. Właściciela ustala serwer przy zapisie reguły. Odczyt monitora pozostaje publiczny.
+
+| Endpoint | Dostęp |
+|---|---|
+| `POST /api/auth/login` | JSON z polami `username` (lub `email`) i `password`; zwraca profil i ciasteczko sesji |
+| `GET /api/auth/me`, `POST /api/auth/logout` | Odczyt profilu i zakończenie sesji |
+| `POST /api/rules`, `POST /api/apply` | Obie role. Apply przyjmuje także zasób `{kind: Rule, name, spec}` |
+| `GET /api/rules`, `GET /api/rules/{id}` | Lista i szczegóły z `createdBy: {id, username}` |
+| `GET /api/teams/directory` | Lider widzi skład przypisanej mu drużyny. Pozostali użytkownicy mogą przeglądać składy zespołów po zalogowaniu. |
+| `GET /api/users/directory` | Lider pobiera identyfikatory kandydatów do przypisania |
+| `POST /api/teams/{teamId}/members`, `DELETE /api/teams/{teamId}/members/{userId}` | Tylko lider. POST przyjmuje `{"userId":"UUID"}` |
+
 ### Tworzenie reguły w control
 
 `POST /api/rules` na porcie 8082 przyjmuje dokument edytora jako UTF-8
@@ -126,7 +150,10 @@ zespół poleceniem:
 
 ```sh
 docker compose exec -T postgres psql -U alerting -d alerting -c "INSERT INTO teams(name) VALUES ('payments') ON CONFLICT DO NOTHING"
-curl -i http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- <<'YAML'
+session_cookie=$(mktemp)
+curl -fsS -c "$session_cookie" http://localhost:8082/api/auth/login -H 'Content-Type: application/json' \
+  --data '{"username":"demo.member","password":"Runbook123!"}'
+curl -i -b "$session_cookie" http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- <<'YAML'
 name: Timeout płatności
 match:
   all:
@@ -136,9 +163,10 @@ title: "Timeout w {{payload.service}}"
 route: {teams: [payments]}
 runbook: auto
 YAML
+rm -f "$session_cookie"
 ```
 
-Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
+Odpowiedź `201` zawiera `id`, `version`, `configVersion` i `createdBy`. Niepoprawny
 dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, powtórzona nazwa
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
@@ -182,4 +210,28 @@ runbook:
   content: "Otwórz workflow {{payload.workflowId}} i sprawdź ostatni krok."
 ```
 
-Kolejna reguła może wskazać tę instrukcję przez `runbook: settlement-timeout`. Listę aktywnych instrukcji zwraca `GET /api/runbooks`. Obsługiwane formaty to `text`, `markdown` i `url` (stały adres HTTP lub HTTPS). Nazwa nowej instrukcji musi być unikalna. `GET /api/alerts/{alertId}` zwraca zapisany alert z gotowym tekstem w `runbook.content`; starsze alerty mogą nie zawierać tego pola. UI powinno wyświetlać Markdown z wyłączonym surowym HTML.
+Kolejna reguła może wskazać tę instrukcję przez `runbook: settlement-timeout`. Listę aktywnych instrukcji zwraca `GET /api/runbooks`. Edytor w zakładce **Runbooks** obsługuje formaty `text`, `markdown` i `yaml`. Starszy runbook w formacie `url` otwiera się do edycji jako tekst z zachowanym adresem. Nazwa nowej instrukcji musi być unikalna. `GET /api/alerts/{alertId}` zwraca zapisany alert z gotowym tekstem w `runbook.content`; starsze alerty mogą nie zawierać tego pola. UI powinno wyświetlać Markdown z wyłączonym surowym HTML.
+
+### Automatyczne akcje runbooka
+
+Do runbooka dodaj opcjonalne pole `actions`. Poniższa lista korzysta z integracji workflow i zespołu istniejącego w Control.
+
+```yaml
+  actions:
+    - type: check_workflow_status
+      params: {workflowId: "{{payload.workflowId}}"}
+    - type: retry_workflow
+      params: {workflowId: "{{payload.workflowId}}"}
+    - type: escalate
+      params: {team: payments}
+```
+
+Po zapisaniu nowego alertu Control sam wykonuje kroki w kolejności YAML-a. W przykładzie odczytuje stan workflow, zleca ponowienie dostawcy i po jego przyjęciu przypisuje alert zespołowi `payments` z poziomem `critical`. Dostawca przyjmie ponowienie tylko dla workflow w stanie `failed`. Kolejny krok rusza po sukcesie poprzedniego. Błąd, nieznany wynik lub brak parametru zatrzymuje sekwencję, a kolejne kroki mają status `skipped`.
+
+W monitorze otwórz **Alerts**, wybierz nowy alert i przewiń do **Runbook actions**. Zobaczysz tryb `Automatic`, status i wynik każdego kroku. Monitor może być zamknięty podczas wykonywania runbooka.
+
+Szczegóły alertu zawierają listę `actions` z parametrami, ostatnim wynikiem i numerem kroku (od 1). Control zapisuje automatyczne wykonania w audycie z aktorem `system`. Kroki czekają w PostgreSQL. Po restarcie Control wznawia kolejkę i używa tego samego klucza idempotencji dla ponowienia przerwanego żądania. Alerty zapisane przed migracją V9 zachowują pierwotny tryb ręczny.
+
+Katalog `action_types` określa nazwę, opis i rodzaj. Domyślny tryb dla nowego typu to `auto_execute=true` i `approval_required=false`. Jawne ustawienie `auto_execute=false` lub `approval_required=true` tworzy ręczny krok, na którym sekwencja poczeka na operatora. Dodatkową akcję HTTP można zarejestrować wpisem z `kind = 'http'` i szablonem takim jak `{"method":"GET","url":"http://workflow-demo:8080/workflows/{{params.workflowId}}","params":["workflowId"],"timeoutMs":3000}`. Obsługiwane są GET i POST bez treści, ze stałym adresem integracji i podstawianiem parametrów w ścieżce. Zarejestrowana nazwa jest od razu dostępna w nowych runbookach.
+
+`./scripts/test-alert-flow.sh` sprawdza pełny scenariusz w Compose z wewnętrzną usługą `workflow-demo`. Aby wygenerować nowy alert do obserwacji, uruchom `./scripts/test-alert-flow.sh --prepare` i otwórz **Alerts** w monitorze. Frontend można uruchomić przez `docker compose --env-file .env.example up --build -d frontend`.

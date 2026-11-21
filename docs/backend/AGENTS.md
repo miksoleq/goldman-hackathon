@@ -49,3 +49,7 @@ Use the isolated PostgreSQL/Redis verification command above. AccountsTest and A
 ### Python runbook checks
 
 Use the existing Compose database settings and run `docker compose up -d --build control engine` from the root. Control starts the private script-runner dependency. Run its unit and HTTP/subprocess tests with `docker compose exec -T script-runner python -B - < script-runner/test_runner.py`. The Java 21 Control and Engine suites use the dedicated PostgreSQL and Redis verification command above. To exercise the seeded diagnostics and named Python actions through a running demo stack, run `python3 scripts/test-python-runbook.py`. It creates uniquely named test rules, runbooks and alerts.
+
+### Runbook editor checks
+
+The Control and Engine verification command above was verified with Java 21, PostgreSQL 17 and Redis. RunbookEditorIT exercises authenticated HTTP edits, ETags, duplicate names, legacy URL and Python settings, and versioned snapshots for multiple attached rules.

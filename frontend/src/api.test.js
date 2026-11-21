@@ -15,7 +15,6 @@ test("loads each monitor feed from its matching API route", async () => {
   }
 
   assert.deepEqual(requestedUrls, [
-    "/api/monitor/messages",
     "/api/monitor/rules",
     "/api/monitor/runbooks",
     "/api/monitor/alerts"
@@ -24,11 +23,11 @@ test("loads each monitor feed from its matching API route", async () => {
 
 test("rejects failed and malformed monitor responses", async () => {
   await assert.rejects(
-    fetchMonitorFeed("messages", async () => ({ ok: false })),
+    fetchMonitorFeed("alerts", async () => ({ ok: false })),
     /request failed/
   );
   await assert.rejects(
-    fetchMonitorFeed("messages", async () => ({ ok: true, json: async () => ({}) })),
+    fetchMonitorFeed("alerts", async () => ({ ok: true, json: async () => ({}) })),
     /invalid response/
   );
   await assert.rejects(fetchMonitorFeed("unknown", async () => ({})), TypeError);

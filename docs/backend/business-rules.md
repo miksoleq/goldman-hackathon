@@ -72,7 +72,7 @@ Use one subsection per rule with a short, descriptive heading.
 
 ### Attached runbook instructions
 
-Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Control accepts text, Markdown and a single valid YAML document as instruction formats. Engine renders these templates using the matched event and continues to read historical static links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
 
 ### Automatic runbook actions
 
@@ -89,3 +89,7 @@ Control validates demo credentials with bcrypt and binds the user UUID to an HTT
 ### Python diagnostics in runbooks
 
 Python steps pause for a signed-in operator by default. The execution snapshot records the exact source for review. A confirmed step records the username from the server session. An explicitly automatic script records `system`. The next step receives the preceding HTTP response body, Python return value, or escalation result. Each failed or timed-out execution stops the sequence and commits its bounded output to PostgreSQL. The [Python action contract](rules/python-actions.md) includes the YAML and alert-detail formats.
+
+### Editing shared runbooks
+
+Any signed-in user can read a full definition with `GET /api/runbooks/{id}` and save the same `kind: Runbook` resource used by `POST /api/apply` with `PUT /api/runbooks/{id}`. Send the ETag from the detail response in If-Match. An outdated tag returns 412, a missing tag returns 428 and a duplicate name returns 409. Each edit records the actor and republishes every linked rule with its new runbook snapshot in the same transaction. Alerts already in the inbox retain their instructions and action executions. RunbookEditorIT covers the HTTP and outbox contracts.

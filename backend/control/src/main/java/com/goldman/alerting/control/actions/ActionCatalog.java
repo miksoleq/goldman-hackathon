@@ -7,6 +7,8 @@ import com.goldman.alerting.contracts.Runbook.Action;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.jooq.JSONB;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,29 @@ public class ActionCatalog {
     public ActionCatalog(DSLContext db, ObjectMapper mapper) {
         this.db = db;
         this.mapper = mapper;
+    }
+
+    public record Option(String name, String title, List<String> params, boolean autoExecute,
+                         boolean approvalRequired, boolean selectable) {}
+
+    public List<Option> options() {
+        var options = new ArrayList<Option>();
+        for (var row : db.selectFrom(ACTION_TYPES).where(ACTION_TYPES.KIND.in("http", "escalate", "python"))
+                .orderBy(ACTION_TYPES.NAME).fetch()) {
+            try {
+                var template = mapper.readTree(row.getTemplate().data());
+                var params = template.path("params");
+                if (!params.isArray()) continue;
+                var names = new ArrayList<String>();
+                params.forEach(param -> names.add(param.asText()));
+                boolean selectable = !"python".equals(row.getKind()) || template.path("code").isTextual();
+                options.add(new Option(row.getName(), Objects.requireNonNullElse(row.getDescription(), row.getName()),
+                        names, row.getAutoExecute(), row.getApprovalRequired(), selectable));
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException("Invalid catalog JSON", e);
+            }
+        }
+        return options;
     }
 
     public Definition resolve(Action action) {
