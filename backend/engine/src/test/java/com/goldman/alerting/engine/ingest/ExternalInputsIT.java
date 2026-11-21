@@ -2,6 +2,7 @@ package com.goldman.alerting.engine.ingest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldman.alerting.engine.ingest.file.FileLogAdapter;
+import com.goldman.alerting.engine.ingest.redis.RedisExternalStreamAdapter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -41,6 +42,12 @@ class ExternalInputsIT {
             try { return mapper.readValue(record.getValue().get("event"), MessageEnvelope.class); }
             catch (Exception e) { throw new AssertionError(e); }
         }).filter(event -> event.adapter().equals(adapter)).toList();
+    }
+
+    @Test void restartingRedisInputReusesTheExistingConsumerGroup() {
+        var restarted = new RedisExternalStreamAdapter(redis, ingestion, EXTERNAL, "engine", "replacement", 100);
+        assertDoesNotThrow(() -> restarted.run(null));
+        assertEquals(1, redis.opsForStream().groups(EXTERNAL).size());
     }
 
     @Test void redisUsesStreamNameOrExplicitProducerSource() {
