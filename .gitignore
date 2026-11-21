@@ -4,3 +4,4 @@
 .env
 /control-panel/node_modules/
 /control-panel/dist/
+/control-panel/.vite/
