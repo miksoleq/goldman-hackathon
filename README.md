@@ -170,3 +170,16 @@ Z katalogu repozytorium uruchom `./scripts/test-alert-flow.sh`. Wymagane są Doc
 Skrypt buduje i uruchamia Control, Engine, PostgreSQL i Redis, tworzy zespół testowy i regułę przez HTTP. Czeka na zaindeksowanie reguły, po czym wysyła jedno pasujące zdarzenie. Sukces potwierdza wpis z procesu Control zawierający ten sam `ruleId`, ten sam `eventId` oraz nadany `alertId`. Skrypt kończy się błędem, jeśli potwierdzenie nie dotrze.
 
 Każdy przebieg tworzy regułę z unikalnym identyfikatorem testu i zostawia dane oraz usługi do inspekcji. Używaj lokalnej bazy demo. Dodatkowe logowanie diagnostyczne włącza plik Compose używany przez skrypt.
+
+### Instrukcja przypięta do reguły
+
+W dokumencie wysyłanym do `POST /api/rules` dodaj np.:
+
+```yaml
+runbook:
+  name: settlement-timeout
+  format: markdown
+  content: "Otwórz workflow {{payload.workflowId}} i sprawdź ostatni krok."
+```
+
+Kolejna reguła może wskazać tę instrukcję przez `runbook: settlement-timeout`. Listę aktywnych instrukcji zwraca `GET /api/runbooks`. Obsługiwane formaty to `text`, `markdown` i `url` (stały adres HTTP lub HTTPS). Nazwa nowej instrukcji musi być unikalna. `GET /api/alerts/{alertId}` zwraca zapisany alert z gotowym tekstem w `runbook.content`; starsze alerty mogą nie zawierać tego pola. UI powinno wyświetlać Markdown z wyłączonym surowym HTML.

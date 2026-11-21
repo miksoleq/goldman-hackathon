@@ -33,6 +33,10 @@ class RuleController {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     Map<String,String> invalid(IllegalArgumentException e) { return Map.of("error","invalid_rule","message",e.getMessage()); }
 
+    @ExceptionHandler(RuleCreation.RunbookConflict.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    Map<String,String> duplicateBook() { return Map.of("error","runbook_name_exists"); }
+
     @ExceptionHandler(RuleCreation.NameConflict.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     Map<String,String> duplicate() { return Map.of("error","rule_name_exists"); }

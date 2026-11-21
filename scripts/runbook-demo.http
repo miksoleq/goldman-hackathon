@@ -1,0 +1,92 @@
+# IntelliJ IDEA → HTTP Client. Klikaj ▶ przy kolejnych requestach.
+# Przygotowanie w terminalu z katalogu repo (dla lokalnego demo z .env.example):
+# docker compose --env-file .env.example up --build -d postgres redis engine control
+# docker compose --env-file .env.example exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "INSERT INTO teams(name) VALUES (\$\$smoke-alerts\$\$) ON CONFLICT (name) DO NOTHING"'
+# Jeśli używasz własnego .env, podmień --env-file w poleceniach.
+@control = http://localhost:8082
+@engine = http://localhost:8081
+@team = smoke-alerts
+
+### 1. Utwórz regułę z nową instrukcją (201). Kliknięcie rozpoczyna nowy przebieg.
+# W treści JSON zapis \u007b oznacza znak {. Dzięki temu IntelliJ zostawia szablon dla Engine.
+< {%
+  client.global.set("demoRun", "demo-" + Date.now());
+%}
+POST {{control}}/api/rules
+Content-Type: application/json
+
+{
+  "name": "Timeout {{demoRun}}",
+  "title": "Timeout rozliczenia",
+  "match": {"all": [
+    {"path": "payload.demo", "op": "eq", "value": "{{demoRun}}"},
+    {"path": "payload.error.code", "op": "eq", "value": "TIMEOUT"}
+  ]},
+  "route": {"teams": ["{{team}}"]},
+  "runbook": {
+    "name": "instrukcja-{{demoRun}}",
+    "format": "markdown",
+    "content": "Otwórz workflow \u007b\u007bpayload.workflowId}} i sprawdź krok \u007b\u007bpayload.step}}."
+  }
+}
+
+> {%
+  client.test("Reguła zapisana", () => client.assert(response.status === 201));
+  if (response.status === 201) client.global.set("demoRuleId", response.body.id);
+%}
+
+### 2. Zobacz zapisany runbook (200)
+GET {{control}}/api/runbooks
+
+> {%
+  const book = response.body.find(b => b.name === "instrukcja-" + client.global.get("demoRun"));
+  client.test("Runbook jest na liście", () => client.assert(!!book));
+  if (book) client.global.set("demoBookId", book.id);
+%}
+
+### 3. Wyślij pasujący event (202). Odpowiedź zawiera eventId.
+POST {{engine}}/ingest
+Content-Type: application/json
+
+{
+  "demo": "{{demoRun}}",
+  "workflowId": "WF-42",
+  "step": "validate-counterparty",
+  "error": {"code": "TIMEOUT"}
+}
+
+> {%
+  client.test("Engine przyjął event", () => client.assert(response.status === 202));
+  if (response.status === 202) {
+    client.global.set("demoEventId", response.body.eventId);
+    client.log("Skopiuj polecenie do terminala, aby odczytać alertId:");
+    client.log(`docker compose --env-file .env.example exec -T postgres sh -c 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'\nSELECT alert_id FROM live_alert_inbox WHERE payload->>'eventId' = '${response.body.eventId}' AND payload->>'ruleId' = '${client.global.get("demoRuleId")}';\nSQL`);
+  }
+%}
+
+### 4. Wklej UUID z wyniku SQL zamiast zer i kliknij ▶. Instrukcja jest w runbook.content.
+# Zapis jest asynchroniczny. Jeśli zapytanie SQL nie zwróci wiersza, powtórz je po chwili.
+@alertId = 3b591468-f41c-4110-943c-ccd89f5486f2
+GET {{control}}/api/alerts/{{alertId}}
+
+> {%
+  client.test("Właściwy alert i instrukcja", () => {
+    client.assert(response.status === 200);
+    client.assert(response.body.eventId === client.global.get("demoEventId"));
+    client.assert(response.body.runbook.id === client.global.get("demoBookId"));
+    client.assert(response.body.runbook.content === "Otwórz workflow WF-42 i sprawdź krok validate-counterparty.");
+  });
+%}
+
+### 5. Opcjonalnie przypnij istniejącą instrukcję po nazwie do drugiej reguły (201)
+POST {{control}}/api/rules
+
+Content-Type: application/json
+
+{
+  "name": "Follow-up {{demoRun}}",
+  "title": "Ponowne sprawdzenie",
+  "route": {"teams": ["{{team}}"]},
+  "match": {"path": "payload.followUp", "op": "eq", "value": "{{demoRun}}"},
+  "runbook": "instrukcja-{{demoRun}}"
+}

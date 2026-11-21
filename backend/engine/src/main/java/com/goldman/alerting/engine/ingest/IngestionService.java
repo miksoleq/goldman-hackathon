@@ -66,10 +66,11 @@ public class IngestionService {
         for (Rule rule : matches) {
             var spec = rule.alert();
             if (spec == null) continue;
+            var book = spec.runbook().apply(event);
             alerts.add(new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.fromString(eventId),
                     UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
                     spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),
-                    LiveAlert.UNASSIGNED_RUNBOOK));
+                    book == null ? LiveAlert.UNASSIGNED_RUNBOOK : book.id(), book));
         }
         MessageEnvelope envelope = new MessageEnvelope(
                 eventId,

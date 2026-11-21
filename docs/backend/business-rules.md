@@ -57,3 +57,7 @@ Use one subsection per rule with a short, descriptive heading.
 - **Exceptions and boundaries** - Describe relevant edge cases and their exact outcomes.
 - **Reason** - Record the brief requirement or team decision behind the rule.
 - **Verification** - Link to the test or name the test case that checks it.
+
+### Attached runbook instructions
+
+Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.

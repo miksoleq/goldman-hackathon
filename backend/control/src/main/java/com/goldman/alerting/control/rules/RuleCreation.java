@@ -2,6 +2,7 @@ package com.goldman.alerting.control.rules;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldman.alerting.contracts.RuleCreated;
+import com.goldman.alerting.contracts.Runbook;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.springframework.stereotype.Service;
@@ -31,9 +32,8 @@ class RuleCreation {
         var users = draft.users().stream().map(username -> db.select(USERS.ID).from(USERS)
                 .where(USERS.USERNAME.eq(username)).forKeyShare().fetchOptional(USERS.ID)
                 .orElseThrow(() -> RuleDocument.invalid("Unknown user: " + username))).toList();
-        UUID runbook = draft.runbook() == null ? null : db.select(RUNBOOKS.ID).from(RUNBOOKS)
-                .where(RUNBOOKS.NAME.eq(draft.runbook())).forKeyShare().fetchOptional(RUNBOOKS.ID)
-                .orElseThrow(() -> RuleDocument.invalid("Unknown reference: " + draft.runbook()));
+        Runbook book = resolveBook(draft, actor);
+        UUID runbook = book == null ? null : book.id();
 
         JSONB definition = JSONB.valueOf(draft.definition().toString());
         UUID id = db.insertInto(RULES)
@@ -74,12 +74,30 @@ class RuleCreation {
                 .set(AUDIT_LOG.ENTITY_ID, id.toString()).execute();
 
         var payload = new RuleCreated(RuleCreated.TYPE, id.toString(), 1, revision, draft.name(),
-                draft.enabled(), draft.priority(), teams, users, runbook, draft.definition());
+                draft.enabled(), draft.priority(), teams, users, runbook, draft.definition(), book);
         db.insertInto(RULE_CREATED_OUTBOX)
                 .set(RULE_CREATED_OUTBOX.CONFIG_VERSION, revision)
                 .set(RULE_CREATED_OUTBOX.RULE_ID, id)
                 .set(RULE_CREATED_OUTBOX.PAYLOAD, JSONB.valueOf(json.valueToTree(payload).toString())).execute();
         return new Created(id, 1, revision);
+    }
+
+    static class RunbookConflict extends RuntimeException {}
+
+    private Runbook resolveBook(RuleDocument.Draft draft, String actor) {
+        if (draft.runbook() == null) return null;
+        var inline = draft.inlineBook();
+        if (inline != null) {
+            var id = db.insertInto(RUNBOOKS).set(RUNBOOKS.NAME, draft.runbook())
+                    .set(RUNBOOKS.FORMAT, inline.format()).set(RUNBOOKS.CONTENT, inline.content())
+                    .set(RUNBOOKS.UPDATED_BY, actor).onConflict(RUNBOOKS.NAME).doNothing()
+                    .returningResult(RUNBOOKS.ID).fetchOptional(RUNBOOKS.ID).orElseThrow(RunbookConflict::new);
+            return new Runbook(id, draft.runbook(), inline.format(), inline.content());
+        }
+        return db.select(RUNBOOKS.ID, RUNBOOKS.NAME, RUNBOOKS.FORMAT, RUNBOOKS.CONTENT).from(RUNBOOKS)
+                .where(RUNBOOKS.NAME.eq(draft.runbook()).and(RUNBOOKS.ENABLED.isTrue()))
+                .forShare().fetchOptional(org.jooq.Records.mapping(Runbook::new))
+                .orElseThrow(() -> RuleDocument.invalid("Unknown active runbook: " + draft.runbook()));
     }
 
     private UUID teamId(String name) {

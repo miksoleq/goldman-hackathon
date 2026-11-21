@@ -6,6 +6,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RuleDocumentTest {
     @Test
+    void validatesAttachedInstructions() throws Exception {
+        var parser = new RuleDocument();
+        String rule = "name: Rule\ntitle: Alert\nmatch: {path: payload, op: exists}\nroute: {teams: [demo]}\nrunbook: ";
+        assertThat(parser.parse(rule + "steps").runbook()).isEqualTo("steps");
+        assertThat(parser.parse(rule + "{name: steps, format: text, content: Check}").inlineBook().content())
+                .isEqualTo("Check");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> parser.parse(rule
+                + "{name: steps, format: markdown, content: '{{bad}}'}")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void rejectsEmptyOrDuplicateRecipients() throws Exception {
         var doc = new RuleDocument();
         for (String route : java.util.List.of("{}", "{teams: [], users: []}", "{users: [alice, alice]}", "{users: alice}")) {

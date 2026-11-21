@@ -9,7 +9,7 @@ import java.util.UUID;
 /** Version-one outbox and Redis snapshot envelope. */
 public record RuleCreated(String type, String ruleId, int version, long configVersion,
                           String name, boolean enabled, int priority, List<UUID> teamIds,
-                          List<UUID> userIds, UUID runbookId, JsonNode definition) {
+                          List<UUID> userIds, UUID runbookId, JsonNode definition, Runbook runbook) {
     public static final String TYPE = "rule.created";
 
     public RuleCreated {
@@ -36,11 +36,14 @@ public record RuleCreated(String type, String ruleId, int version, long configVe
         }
         String id = node.path("ruleId").textValue();
         JsonNode runbook = node.path("runbookId");
+        JsonNode book = node.path("runbook");
+        Runbook snapshot = book.isObject() ? new Runbook(UUID.fromString(book.required("id").asText()),
+                book.required("name").asText(), book.required("format").asText(), book.required("content").asText()) : null;
         return new RuleCreated(node.path("type").textValue(), id, version.asInt(1),
                 node.path("configVersion").asLong(), node.path("name").asText(id),
                 node.get("enabled").booleanValue(), node.path("priority").asInt(100),
                 recipients(node, "teamIds"), recipients(node, "userIds"),
-                runbook.isTextual() ? UUID.fromString(runbook.textValue()) : null, node.get("definition"));
+                runbook.isTextual() ? UUID.fromString(runbook.textValue()) : null, node.get("definition"), snapshot);
     }
 
     private static List<UUID> recipients(JsonNode node, String field) {

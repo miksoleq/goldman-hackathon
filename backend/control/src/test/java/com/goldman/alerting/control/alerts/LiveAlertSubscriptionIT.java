@@ -39,7 +39,7 @@ class LiveAlertSubscriptionIT {
         var ops = redis.<String, String>opsForStream();
         var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 List.of(), List.of(UUID.randomUUID()), "high", "Timeout", "WF-42", 1,
-                Instant.parse("2026-11-21T12:00:00Z"), LiveAlert.UNASSIGNED_RUNBOOK);
+                Instant.parse("2026-11-21T12:00:00Z"), LiveAlert.UNASSIGNED_RUNBOOK, null);
         var payload = Map.of("alert", mapper.writeValueAsString(alert));
         try {
             ops.add(stream, payload);

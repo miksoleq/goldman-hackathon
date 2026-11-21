@@ -3,20 +3,27 @@ package com.goldman.alerting.engine.rules;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import java.util.*;
+import com.goldman.alerting.contracts.Runbook;
 import java.util.function.Function;
 
 /** Alert routing and rendering belong to the same snapshot as the predicate. */
 public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,String> title,
-                        Function<JsonNode,String> body, Function<JsonNode,String> severity) {
+                        Function<JsonNode,String> body, Function<JsonNode,String> severity, Function<JsonNode,Runbook> runbook) {
     public AlertSpec {
         teams = List.copyOf(teams);
         users = List.copyOf(users);
     }
 
-    static AlertSpec compile(String id, String name, List<UUID> teams, List<UUID> users, JsonNode definition) {
+    static AlertSpec compile(String id, String name, List<UUID> teams, List<UUID> users, JsonNode definition, Runbook book) {
+        Function<JsonNode,Runbook> render = event -> null;
+        if (book != null) {
+            var content = "url".equals(book.format()) ? (Function<JsonNode,String>) event -> book.content()
+                    : template(book.content(), id, name);
+            render = event -> new Runbook(book.id(), book.name(), book.format(), content.apply(event));
+        }
         return new AlertSpec(teams, users, template(definition.path("title").asText(), id, name),
                 template(definition.path("body").asText(""), id, name),
-                template(definition.path("severity").asText("medium"), id, name).andThen(AlertSpec::level));
+                template(definition.path("severity").asText("medium"), id, name).andThen(AlertSpec::level), render);
     }
 
     private static String level(String value) {

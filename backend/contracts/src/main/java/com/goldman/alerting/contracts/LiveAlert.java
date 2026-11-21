@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public record LiveAlert(int v, String type, UUID alertId, UUID eventId, UUID ruleId,
                         List<UUID> teamIds, List<UUID> userIds, String severity,
-                        String title, String body, int count, Instant occurredAt, UUID runbookId) {
+                        String title, String body, int count, Instant occurredAt, UUID runbookId, Runbook runbook) {
     public static final String STREAM = "alerts.live";
     public static final UUID UNASSIGNED_RUNBOOK = new UUID(0, 0);
     public LiveAlert {
