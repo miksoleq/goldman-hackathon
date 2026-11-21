@@ -8,10 +8,12 @@ import com.goldman.alerting.control.db.tables.AuditLog;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
 import com.goldman.alerting.control.db.tables.RuleCreatedOutbox;
 import com.goldman.alerting.control.db.tables.RuleTeams;
+import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
 import com.goldman.alerting.control.db.tables.Teams;
+import com.goldman.alerting.control.db.tables.Users;
 
 import java.util.Arrays;
 import java.util.List;
@@ -55,6 +57,11 @@ public class Public extends SchemaImpl {
     public final RuleTeams RULE_TEAMS = RuleTeams.RULE_TEAMS;
 
     /**
+     * The table <code>public.rule_users</code>.
+     */
+    public final RuleUsers RULE_USERS = RuleUsers.RULE_USERS;
+
+    /**
      * The table <code>public.rule_versions</code>.
      */
     public final RuleVersions RULE_VERSIONS = RuleVersions.RULE_VERSIONS;
@@ -73,6 +80,11 @@ public class Public extends SchemaImpl {
      * The table <code>public.teams</code>.
      */
     public final Teams TEAMS = Teams.TEAMS;
+
+    /**
+     * The table <code>public.users</code>.
+     */
+    public final Users USERS = Users.USERS;
 
     /**
      * No further instances allowed
@@ -94,10 +106,12 @@ public class Public extends SchemaImpl {
             ConfigVersion.CONFIG_VERSION,
             RuleCreatedOutbox.RULE_CREATED_OUTBOX,
             RuleTeams.RULE_TEAMS,
+            RuleUsers.RULE_USERS,
             RuleVersions.RULE_VERSIONS,
             Rules.RULES,
             Runbooks.RUNBOOKS,
-            Teams.TEAMS
+            Teams.TEAMS,
+            Users.USERS
         );
     }
 }

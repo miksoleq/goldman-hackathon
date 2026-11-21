@@ -15,18 +15,18 @@ Document a change in the same commit as the implementation and focused tests. Fo
 
 ### Control owns database persistence
 
-- **Expected behavior** - Control is the only service that reads or writes application data in PostgreSQL. It uses jOOQ for queries and writes, and Flyway for versioned schema migrations. Creating a rule stores the rule, team links, version history, audit entry, configuration revision, and Redis outbox event in one database transaction.
+- **Expected behavior** - Control is the only service that reads or writes application data in PostgreSQL. It uses jOOQ for queries and writes, and Flyway for versioned schema migrations. Creating a rule stores the rule, user and team links, version history, audit entry, configuration revision, and Redis outbox event in one database transaction.
 - **Exceptions and boundaries** - Invalid rule documents or unknown team/runbook references reject the request; duplicate names return `409`. Redis publishing is controlled by `RULES_REDIS_ENABLED`. If Redis is unavailable after the database transaction commits, the outbox retains the event for retry. Engine has no database connection; it maintains rule buckets only in memory.
 - **Reason** - Control owns durable configuration and schema versions. Engine consumes the resulting rule definition without coupling matching to PostgreSQL or jOOQ.
 - **Verification** - Control rule creation tests exercise validation, persistence, and outbox behavior. The engine Redis integration test verifies the consumer contract; the full Control-to-Engine smoke flow is documented in the root `README.md`.
 
 ### Create a rule in Control
 
-A valid editor document creates the rule, team links, version 1, audit entry, configuration revision, and Redis outbox entry in one PostgreSQL transaction. Unknown references or invalid definitions reject the whole request. The original YAML is retained for editing. Rule creation succeeds independently of the engine. The root README contains the request example, response contract, and Redis setup.
+A valid editor document creates the rule, user and team links, version 1, audit entry, configuration revision, and Redis outbox entry in one PostgreSQL transaction. Unknown references or invalid definitions reject the whole request. The original YAML is retained for editing. Rule creation succeeds independently of the engine. The root README contains the request example, response contract, and Redis setup.
 
 ### Rule-created Redis contract
 
-- **Expected behavior** - Control publishes each created rule to `rules.created.v1`, using Redis Pub/Sub with the latest envelope per rule id in the companion hash. The JSON value contains `type`, `ruleId`, `version`, `configVersion`, `name`, `enabled`, `priority`, `teamIds`, `runbookId`, and `definition`. `definition` is the normalized v1 JSON document from the rule-definition schema. Engine uses `ruleId`, `enabled`, and `definition` to build matching buckets; the remaining fields are metadata for future rule ordering and routing.
+- **Expected behavior** - Control publishes each created rule to `rules.created.v1`, using Redis Pub/Sub with the latest envelope per rule id in the companion hash. The JSON value contains `type`, `ruleId`, `version`, `configVersion`, `name`, `enabled`, `priority`, `teamIds`, `userIds`, `runbookId`, and `definition`. `definition` is the normalized v1 JSON document from the rule-definition schema. Engine uses `ruleId`, `enabled`, and `definition` to build matching buckets. Engine includes the configured recipients in each matched alert on `alerts.live`.
 - **Exceptions and boundaries** - Disabled rules are not added to the active index. Duplicates and older versions are ignored. Invalid events do not alter the current snapshot. Control's outbox may deliver a record more than once, so consumers must be idempotent by rule id and version.
 - **Reason** - The v1 definition schema excludes database identity and enabled state; those fields are supplied by Control in the event envelope.
 - **Verification** - `RedisRuleCreatedAdapterTest` covers accepted, disabled, and malformed events. `RedisRuleCreatedAdapterIT` verifies the real Redis listener against Redis.

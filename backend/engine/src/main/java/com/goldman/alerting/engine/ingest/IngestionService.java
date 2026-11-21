@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.time.Instant;
+import java.util.ArrayList;
+import com.goldman.alerting.schema.LiveAlert;
 import com.goldman.alerting.engine.rules.Rule;
 import com.goldman.alerting.engine.rules.RuleIndexManager;
 import org.springframework.beans.factory.annotation.Value;
@@ -58,7 +61,16 @@ public class IngestionService {
         event.set("payload", payload);
         event.putObject("meta").put("source", source).put("adapter", adapter)
                 .put("eventId", eventId).put("receivedAt", receivedAt).put("contentType", "json");
-        var matches = rules.match(event).stream().map(Rule::id).toList();
+        var matches = rules.match(event);
+        var alerts = new ArrayList<LiveAlert>();
+        for (Rule rule : matches) {
+            var spec = rule.alert();
+            if (spec == null) continue;
+            alerts.add(new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.fromString(eventId),
+                    UUID.fromString(rule.id()), spec.teams(), spec.users(), spec.severity().apply(event),
+                    spec.title().apply(event), spec.body().apply(event), 1, Instant.ofEpochMilli(receivedAt),
+                    LiveAlert.UNASSIGNED_RUNBOOK));
+        }
         MessageEnvelope envelope = new MessageEnvelope(
                 eventId,
                 source,
@@ -66,9 +78,9 @@ public class IngestionService {
                 receivedAt,
                 "json",
                 payload,
-                matches
+                matches.stream().map(Rule::id).toList()
         );
-        publisher.publish(envelope);
+        publisher.publish(envelope, alerts);
         return envelope;
     }
 }

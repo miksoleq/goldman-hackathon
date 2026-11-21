@@ -18,16 +18,16 @@ class RedisRuleCreatedAdapterTest {
         RuleIndexManager manager = new RuleIndexManager(List.of());
         RedisRuleCreatedAdapter adapter = new RedisRuleCreatedAdapter(objectMapper, manager, null, "rules.created.v1");
 
-        adapter.accept(message("enabled-rule", true, "enabled"));
+        adapter.accept(message("048f06df-7fb4-4432-8743-87af3277489f", true, "enabled"));
         assertEquals(1, manager.snapshot().ruleCount());
-        assertEquals(List.of("enabled-rule"), manager.match(json("{\"payload\":{\"kind\":\"enabled\"}}"))
+        assertEquals(List.of("048f06df-7fb4-4432-8743-87af3277489f"), manager.match(json("{\"payload\":{\"kind\":\"enabled\"}}"))
                 .stream().map(rule -> rule.id()).toList());
 
-        String updated = message("enabled-rule", true, "changed").replace("\"version\":1", "\"version\":2");
+        String updated = message("048f06df-7fb4-4432-8743-87af3277489f", true, "changed").replace("\"version\":1", "\"version\":2");
         adapter.accept(updated);
         var snapshot = manager.snapshot();
         adapter.accept(updated);
-        adapter.accept(message("enabled-rule", true, "enabled"));
+        adapter.accept(message("048f06df-7fb4-4432-8743-87af3277489f", true, "enabled"));
         org.junit.jupiter.api.Assertions.assertSame(snapshot, manager.snapshot());
         assertEquals(1, manager.match(json("{\"payload\":{\"kind\":\"changed\"}}")).size());
 

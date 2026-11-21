@@ -8,18 +8,22 @@ import com.goldman.alerting.control.db.tables.AuditLog;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
 import com.goldman.alerting.control.db.tables.RuleCreatedOutbox;
 import com.goldman.alerting.control.db.tables.RuleTeams;
+import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
 import com.goldman.alerting.control.db.tables.Teams;
+import com.goldman.alerting.control.db.tables.Users;
 import com.goldman.alerting.control.db.tables.records.AuditLogRecord;
 import com.goldman.alerting.control.db.tables.records.ConfigVersionRecord;
 import com.goldman.alerting.control.db.tables.records.RuleCreatedOutboxRecord;
 import com.goldman.alerting.control.db.tables.records.RuleTeamsRecord;
+import com.goldman.alerting.control.db.tables.records.RuleUsersRecord;
 import com.goldman.alerting.control.db.tables.records.RuleVersionsRecord;
 import com.goldman.alerting.control.db.tables.records.RulesRecord;
 import com.goldman.alerting.control.db.tables.records.RunbooksRecord;
 import com.goldman.alerting.control.db.tables.records.TeamsRecord;
+import com.goldman.alerting.control.db.tables.records.UsersRecord;
 
 import org.jooq.ForeignKey;
 import org.jooq.TableField;
@@ -43,6 +47,7 @@ public class Keys {
     public static final UniqueKey<ConfigVersionRecord> CONFIG_VERSION_PKEY = Internal.createUniqueKey(ConfigVersion.CONFIG_VERSION, DSL.name("config_version_pkey"), new TableField[] { ConfigVersion.CONFIG_VERSION.ID }, true);
     public static final UniqueKey<RuleCreatedOutboxRecord> RULE_CREATED_OUTBOX_PKEY = Internal.createUniqueKey(RuleCreatedOutbox.RULE_CREATED_OUTBOX, DSL.name("rule_created_outbox_pkey"), new TableField[] { RuleCreatedOutbox.RULE_CREATED_OUTBOX.CONFIG_VERSION }, true);
     public static final UniqueKey<RuleTeamsRecord> RULE_TEAMS_PKEY = Internal.createUniqueKey(RuleTeams.RULE_TEAMS, DSL.name("rule_teams_pkey"), new TableField[] { RuleTeams.RULE_TEAMS.RULE_ID, RuleTeams.RULE_TEAMS.TEAM_ID }, true);
+    public static final UniqueKey<RuleUsersRecord> RULE_USERS_PKEY = Internal.createUniqueKey(RuleUsers.RULE_USERS, DSL.name("rule_users_pkey"), new TableField[] { RuleUsers.RULE_USERS.RULE_ID, RuleUsers.RULE_USERS.USER_ID }, true);
     public static final UniqueKey<RuleVersionsRecord> RULE_VERSIONS_PKEY = Internal.createUniqueKey(RuleVersions.RULE_VERSIONS, DSL.name("rule_versions_pkey"), new TableField[] { RuleVersions.RULE_VERSIONS.RULE_ID, RuleVersions.RULE_VERSIONS.VERSION }, true);
     public static final UniqueKey<RulesRecord> RULES_NAME_KEY = Internal.createUniqueKey(Rules.RULES, DSL.name("rules_name_key"), new TableField[] { Rules.RULES.NAME }, true);
     public static final UniqueKey<RulesRecord> RULES_PKEY = Internal.createUniqueKey(Rules.RULES, DSL.name("rules_pkey"), new TableField[] { Rules.RULES.ID }, true);
@@ -50,6 +55,8 @@ public class Keys {
     public static final UniqueKey<RunbooksRecord> RUNBOOKS_PKEY = Internal.createUniqueKey(Runbooks.RUNBOOKS, DSL.name("runbooks_pkey"), new TableField[] { Runbooks.RUNBOOKS.ID }, true);
     public static final UniqueKey<TeamsRecord> TEAMS_NAME_KEY = Internal.createUniqueKey(Teams.TEAMS, DSL.name("teams_name_key"), new TableField[] { Teams.TEAMS.NAME }, true);
     public static final UniqueKey<TeamsRecord> TEAMS_PKEY = Internal.createUniqueKey(Teams.TEAMS, DSL.name("teams_pkey"), new TableField[] { Teams.TEAMS.ID }, true);
+    public static final UniqueKey<UsersRecord> USERS_PKEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_pkey"), new TableField[] { Users.USERS.ID }, true);
+    public static final UniqueKey<UsersRecord> USERS_USERNAME_KEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_username_key"), new TableField[] { Users.USERS.USERNAME }, true);
 
     // -------------------------------------------------------------------------
     // FOREIGN KEY definitions
@@ -57,6 +64,8 @@ public class Keys {
 
     public static final ForeignKey<RuleTeamsRecord, RulesRecord> RULE_TEAMS__RULE_TEAMS_RULE_ID_FKEY = Internal.createForeignKey(RuleTeams.RULE_TEAMS, DSL.name("rule_teams_rule_id_fkey"), new TableField[] { RuleTeams.RULE_TEAMS.RULE_ID }, Keys.RULES_PKEY, new TableField[] { Rules.RULES.ID }, true);
     public static final ForeignKey<RuleTeamsRecord, TeamsRecord> RULE_TEAMS__RULE_TEAMS_TEAM_ID_FKEY = Internal.createForeignKey(RuleTeams.RULE_TEAMS, DSL.name("rule_teams_team_id_fkey"), new TableField[] { RuleTeams.RULE_TEAMS.TEAM_ID }, Keys.TEAMS_PKEY, new TableField[] { Teams.TEAMS.ID }, true);
+    public static final ForeignKey<RuleUsersRecord, RulesRecord> RULE_USERS__RULE_USERS_RULE_ID_FKEY = Internal.createForeignKey(RuleUsers.RULE_USERS, DSL.name("rule_users_rule_id_fkey"), new TableField[] { RuleUsers.RULE_USERS.RULE_ID }, Keys.RULES_PKEY, new TableField[] { Rules.RULES.ID }, true);
+    public static final ForeignKey<RuleUsersRecord, UsersRecord> RULE_USERS__RULE_USERS_USER_ID_FKEY = Internal.createForeignKey(RuleUsers.RULE_USERS, DSL.name("rule_users_user_id_fkey"), new TableField[] { RuleUsers.RULE_USERS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
     public static final ForeignKey<RuleVersionsRecord, RulesRecord> RULE_VERSIONS__RULE_VERSIONS_RULE_ID_FKEY = Internal.createForeignKey(RuleVersions.RULE_VERSIONS, DSL.name("rule_versions_rule_id_fkey"), new TableField[] { RuleVersions.RULE_VERSIONS.RULE_ID }, Keys.RULES_PKEY, new TableField[] { Rules.RULES.ID }, true);
     public static final ForeignKey<RulesRecord, RunbooksRecord> RULES__RULES_RUNBOOK_ID_FKEY = Internal.createForeignKey(Rules.RULES, DSL.name("rules_runbook_id_fkey"), new TableField[] { Rules.RULES.RUNBOOK_ID }, Keys.RUNBOOKS_PKEY, new TableField[] { Runbooks.RUNBOOKS.ID }, true);
 }

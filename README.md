@@ -118,7 +118,7 @@ Warunek `jsonSchema` porównuje strukturę danych pod wskazaną ścieżką. Iden
 ### Tworzenie reguły w control
 
 `POST /api/rules` na porcie 8082 przyjmuje dokument edytora jako UTF-8
-(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams` i nazwa przypiętego
+(`application/yaml`, maks. 1 MiB). Nazwy w `route.teams`, loginy w `route.users` i nazwa przypiętego
 runbooka muszą już istnieć w bazie. Na pustej lokalnej bazie demo przygotuj
 zespół poleceniem:
 
@@ -137,7 +137,7 @@ YAML
 ```
 
 Odpowiedź `201` zawiera `id`, `version` i `configVersion`. Niepoprawny
-dokument lub nieznana nazwa zespołu/runbooka daje `400`, powtórzona nazwa
+dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, powtórzona nazwa
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
 
@@ -154,5 +154,9 @@ można zmienić przez `RULES_REDIS_CHANNEL`, a nazwa hasha otrzymuje sufiks `:sn
 Każda replika Engine subskrybuje kanał i dodaje nową regułę do swojego indeksu
 w pamięci. Po starcie lub ponownym połączeniu uzupełnia reguły z hasha,
 pomijając już zastosowane wersje. Compose utrwala dane Redisa w wolumenie
-`redis_data`. Przy przejściu z Kafki migracja V3 kolejkuje istniejące reguły
+`redis_data`. Przy przejściu z Kafki migracja V4 kolejkuje istniejące reguły
 do wysłania przez Redis.
+
+### Alert po dopasowaniu
+
+Aby kierować alert tylko do wybranych osób, ustaw np. `route: {users: [alice]}`. Można też podać zespoły i osoby w jednej regule. Po dopasowaniu Engine wysyła komunikat `alert.created` przez Redis Pub/Sub na `alerts.live`, a Control odbiera go jako zdarzenie aplikacyjne. W środowisku demo komunikat można podejrzeć przed wysłaniem eventu poleceniem `docker compose exec redis redis-cli SUBSCRIBE alerts.live`. Przykład i zasady dostarczania opisuje [kontrakt alertów](docs/backend/business-decisions/2026-11-21-live-alerts.md).

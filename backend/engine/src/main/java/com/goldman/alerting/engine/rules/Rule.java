@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /** A compiled immutable rule in one {@link RuleIndex} snapshot. */
-public record Rule(int ordinal, String id, Condition condition, Predicate<JsonNode> predicate) {
+public record Rule(int ordinal, String id, Condition condition, Predicate<JsonNode> predicate, AlertSpec alert) {
 
     public Rule {
         if (ordinal < 0) {

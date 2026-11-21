@@ -180,7 +180,7 @@ public final class RuleIndex {
     }
 
     private static Rule compileRule(int ordinal, RuleDefinition definition) {
-        return new Rule(ordinal, definition.id(), definition.condition(), compilePredicate(definition.condition()));
+        return new Rule(ordinal, definition.id(), definition.condition(), compilePredicate(definition.condition()), definition.alert());
     }
 
     private static Predicate<JsonNode> compilePredicate(Condition condition) {
