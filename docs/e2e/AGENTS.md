@@ -18,3 +18,7 @@ Read the [E2E guidelines](README.md) before working in this repository. Read the
 Keep unit and integration coverage for application changes in the owning backend or frontend repository. When changing reusable test tooling here, add or update unit tests for its logic and integration tests for affected boundaries such as API fixture setup. Run the relevant suites before handoff and report the commands, results, and any blockers.
 
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.
+
+### Isolated Compose end-to-end suite
+
+From the repository root, install the Control Panel dependencies with `npm --prefix control-panel ci`. With Docker Compose, Python 3, Node.js and Chrome available, set `E2E_USERNAME` and `E2E_PASSWORD` for a seeded demo account and run `scripts/test-e2e.sh`. Set `CHROME_BIN` if Chrome is not in its standard location. The suite uses disposable Compose volumes and chooses local ports automatically. See [scenarios](SCENARIOS.md) for coverage, including SMS and email.

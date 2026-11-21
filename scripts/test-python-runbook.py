@@ -9,6 +9,8 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 CONTROL = os.environ.get("CONTROL_URL", "http://localhost:8082")
 ENGINE = os.environ.get("ENGINE_URL", "http://localhost:8081")
+USERNAME = os.environ.get("E2E_USERNAME", "demo.member")
+PASSWORD = os.environ.get("E2E_PASSWORD", "Runbook123!")
 session = build_opener(HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
 
@@ -52,7 +54,7 @@ def make_alert(runbook):
 
 
 def main():
-    call(CONTROL + "/api/auth/login", {"username": "demo.member", "password": "Runbook123!"})
+    call(CONTROL + "/api/auth/login", {"username": USERNAME, "password": PASSWORD})
     alert = make_alert("script-runner-diagnostics")
     wait_for(lambda: call(alert)["actions"][1]["available"])
     steps = call(alert)["actions"]
@@ -63,7 +65,7 @@ def main():
     expect_rejection(409, execute, {"confirmed": False})
     summary = call(execute, {"confirmed": True})
     assert summary["result"]["result"] == {"service": "script-runner", "healthy": True}, summary
-    assert summary["executedBy"] == summary["approvedBy"] == "demo.member"
+    assert summary["executedBy"] == summary["approvedBy"] == USERNAME
     assert call(alert)["actions"][1] == summary
 
     name = "python-smoke-" + str(uuid.uuid4())
