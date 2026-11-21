@@ -39,3 +39,15 @@ E2E_USERNAME=demo.member E2E_PASSWORD='<hasło konta demo>' scripts/test-e2e.sh
 ```
 
 Jeśli Chrome jest w niestandardowej lokalizacji, ustaw CHROME_BIN. Testy uruchamiają się sekwencyjnie. Pierwsza budowa obrazów może trwać kilka minut.
+
+## Opóźnienie dostarczenia
+
+```sh
+E2E_USERNAME=demo.member E2E_PASSWORD='<hasło konta demo>' scripts/test-e2e.sh --latency
+```
+
+Test uruchamia osobny stos Compose. Po aktywacji reguły i jednym zdarzeniu rozgrzewkowym porównuje dwa profile: 30 zdarzeń z docelowym tempem 2/s i serię 30 z maksymalnie ośmioma równoległymi żądaniami HTTP. Każde zdarzenie ma osobny klucz deduplikacji. W tym stosie limit liczby dostaw jest podniesiony do 200 na kanał i odbiorcę, aby zmierzyć kolejkę także powyżej domyślnego progu 10.
+
+Ten sam proces mierzy zegarem monotonicznym czas od rozpoczęcia żądania ingest do pierwszego odczytu identyfikatora wiadomości ze skrzynki zalogowanego odbiorcy, Mailpit albo lokalnej bramki SMS. Obserwator odpytuje wszystkie trzy API i robi 25 ms przerwy między cyklami. Pomiar zawiera czas odpytywania i przesyłania odpowiedzi. Punkt końcowy SMS oznacza przyjęcie przez symulator, e-mail oznacza widoczność w testowej skrzynce, a inbox oznacza dostępność przez API.
+
+W konsoli pojawia się liczba zaobserwowanych dostaw oraz p50, p95 i maksimum w milisekundach dla każdego kanału i profilu. CSV w `e2e-results/perf-*.csv` zawiera również identyfikatory zdarzeń i puste pola dla brakujących dostaw. Brak dostawy kończy test błędem. To test porównawczy na lokalnym sprzęcie, a wielkość próby ogranicza interpretację ogona rozkładu.

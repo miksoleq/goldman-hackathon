@@ -1,0 +1,4 @@
+services:
+  control:
+    environment:
+      NOTIFICATIONS_THROTTLE_LIMIT: 200
