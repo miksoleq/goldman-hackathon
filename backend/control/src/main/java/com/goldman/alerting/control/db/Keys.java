@@ -13,6 +13,7 @@ import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
+import com.goldman.alerting.control.db.tables.TeamMembers;
 import com.goldman.alerting.control.db.tables.Teams;
 import com.goldman.alerting.control.db.tables.Users;
 import com.goldman.alerting.control.db.tables.records.AuditLogRecord;
@@ -24,6 +25,7 @@ import com.goldman.alerting.control.db.tables.records.RuleUsersRecord;
 import com.goldman.alerting.control.db.tables.records.RuleVersionsRecord;
 import com.goldman.alerting.control.db.tables.records.RulesRecord;
 import com.goldman.alerting.control.db.tables.records.RunbooksRecord;
+import com.goldman.alerting.control.db.tables.records.TeamMembersRecord;
 import com.goldman.alerting.control.db.tables.records.TeamsRecord;
 import com.goldman.alerting.control.db.tables.records.UsersRecord;
 
@@ -56,6 +58,7 @@ public class Keys {
     public static final UniqueKey<RulesRecord> RULES_PKEY = Internal.createUniqueKey(Rules.RULES, DSL.name("rules_pkey"), new TableField[] { Rules.RULES.ID }, true);
     public static final UniqueKey<RunbooksRecord> RUNBOOKS_NAME_KEY = Internal.createUniqueKey(Runbooks.RUNBOOKS, DSL.name("runbooks_name_key"), new TableField[] { Runbooks.RUNBOOKS.NAME }, true);
     public static final UniqueKey<RunbooksRecord> RUNBOOKS_PKEY = Internal.createUniqueKey(Runbooks.RUNBOOKS, DSL.name("runbooks_pkey"), new TableField[] { Runbooks.RUNBOOKS.ID }, true);
+    public static final UniqueKey<TeamMembersRecord> TEAM_MEMBERS_PKEY = Internal.createUniqueKey(TeamMembers.TEAM_MEMBERS, DSL.name("team_members_pkey"), new TableField[] { TeamMembers.TEAM_MEMBERS.TEAM_ID, TeamMembers.TEAM_MEMBERS.USER_ID }, true);
     public static final UniqueKey<TeamsRecord> TEAMS_NAME_KEY = Internal.createUniqueKey(Teams.TEAMS, DSL.name("teams_name_key"), new TableField[] { Teams.TEAMS.NAME }, true);
     public static final UniqueKey<TeamsRecord> TEAMS_PKEY = Internal.createUniqueKey(Teams.TEAMS, DSL.name("teams_pkey"), new TableField[] { Teams.TEAMS.ID }, true);
     public static final UniqueKey<UsersRecord> USERS_PKEY = Internal.createUniqueKey(Users.USERS, DSL.name("users_pkey"), new TableField[] { Users.USERS.ID }, true);
@@ -70,5 +73,8 @@ public class Keys {
     public static final ForeignKey<RuleUsersRecord, RulesRecord> RULE_USERS__RULE_USERS_RULE_ID_FKEY = Internal.createForeignKey(RuleUsers.RULE_USERS, DSL.name("rule_users_rule_id_fkey"), new TableField[] { RuleUsers.RULE_USERS.RULE_ID }, Keys.RULES_PKEY, new TableField[] { Rules.RULES.ID }, true);
     public static final ForeignKey<RuleUsersRecord, UsersRecord> RULE_USERS__RULE_USERS_USER_ID_FKEY = Internal.createForeignKey(RuleUsers.RULE_USERS, DSL.name("rule_users_user_id_fkey"), new TableField[] { RuleUsers.RULE_USERS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
     public static final ForeignKey<RuleVersionsRecord, RulesRecord> RULE_VERSIONS__RULE_VERSIONS_RULE_ID_FKEY = Internal.createForeignKey(RuleVersions.RULE_VERSIONS, DSL.name("rule_versions_rule_id_fkey"), new TableField[] { RuleVersions.RULE_VERSIONS.RULE_ID }, Keys.RULES_PKEY, new TableField[] { Rules.RULES.ID }, true);
+    public static final ForeignKey<RulesRecord, UsersRecord> RULES__RULES_CREATED_BY_USER_ID_FKEY = Internal.createForeignKey(Rules.RULES, DSL.name("rules_created_by_user_id_fkey"), new TableField[] { Rules.RULES.CREATED_BY_USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
     public static final ForeignKey<RulesRecord, RunbooksRecord> RULES__RULES_RUNBOOK_ID_FKEY = Internal.createForeignKey(Rules.RULES, DSL.name("rules_runbook_id_fkey"), new TableField[] { Rules.RULES.RUNBOOK_ID }, Keys.RUNBOOKS_PKEY, new TableField[] { Runbooks.RUNBOOKS.ID }, true);
+    public static final ForeignKey<TeamMembersRecord, TeamsRecord> TEAM_MEMBERS__TEAM_MEMBERS_TEAM_ID_FKEY = Internal.createForeignKey(TeamMembers.TEAM_MEMBERS, DSL.name("team_members_team_id_fkey"), new TableField[] { TeamMembers.TEAM_MEMBERS.TEAM_ID }, Keys.TEAMS_PKEY, new TableField[] { Teams.TEAMS.ID }, true);
+    public static final ForeignKey<TeamMembersRecord, UsersRecord> TEAM_MEMBERS__TEAM_MEMBERS_USER_ID_FKEY = Internal.createForeignKey(TeamMembers.TEAM_MEMBERS, DSL.name("team_members_user_id_fkey"), new TableField[] { TeamMembers.TEAM_MEMBERS.USER_ID }, Keys.USERS_PKEY, new TableField[] { Users.USERS.ID }, true);
 }

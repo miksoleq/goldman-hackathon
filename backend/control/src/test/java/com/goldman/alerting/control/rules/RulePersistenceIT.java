@@ -31,7 +31,7 @@ class RulePersistenceIT {
                 title: Timeout
                 route: {users: ['%s']}
                 """.formatted(user, user);
-        var created = creation.create(parser.parse(source), source, "operator");
+        var created = creation.create(parser.parse(source), source, new com.goldman.alerting.control.auth.Accounts.UserRef(null, "operator"));
         assertThat(db.fetchCount(RULE_USERS, RULE_USERS.RULE_ID.eq(created.id()).and(RULE_USERS.USER_ID.eq(user)))).isEqualTo(1);
         var pending = db.selectFrom(RULE_CREATED_OUTBOX).where(RULE_CREATED_OUTBOX.RULE_ID.eq(created.id())).fetchSingle();
         var route = json.readTree(pending.getPayload().data());
@@ -51,8 +51,8 @@ class RulePersistenceIT {
                 route: {teams: [%s]}
                 """.formatted(teamId, teamName);
         var draft = parser.parse(source);
-        var created = creation.create(draft, source, "operator");
-        assertThatThrownBy(() -> creation.create(draft, source, "operator"))
+        var created = creation.create(draft, source, new com.goldman.alerting.control.auth.Accounts.UserRef(null, "operator"));
+        assertThatThrownBy(() -> creation.create(draft, source, new com.goldman.alerting.control.auth.Accounts.UserRef(null, "operator")))
                 .isInstanceOf(RuleCreation.NameConflict.class);
         assertThat(db.select(RULE_TEAMS.TEAM_ID).from(RULE_TEAMS)
                 .where(RULE_TEAMS.RULE_ID.eq(created.id())).fetch(RULE_TEAMS.TEAM_ID)).containsExactly(teamId);

@@ -16,6 +16,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.goldman.alerting</groupId>
             <artifactId>rules</artifactId>
             <version>${project.version}</version>
@@ -125,7 +129,7 @@
                                 <database>
                                     <name>org.jooq.meta.postgres.PostgresDatabase</name>
                                     <inputSchema>public</inputSchema>
-                                    <includes>live_alert_inbox|users|rule_users|teams|rules|runbooks|rule_teams|rule_versions|config_version|audit_log|rule_created_outbox</includes>
+                                    <includes>team_members|live_alert_inbox|users|rule_users|teams|rules|runbooks|rule_teams|rule_versions|config_version|audit_log|rule_created_outbox</includes>
                                 </database>
                                 <generate>
                                     <relations>false</relations>

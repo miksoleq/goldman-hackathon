@@ -13,6 +13,7 @@ import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
+import com.goldman.alerting.control.db.tables.TeamMembers;
 import com.goldman.alerting.control.db.tables.Teams;
 import com.goldman.alerting.control.db.tables.Users;
 
@@ -83,6 +84,11 @@ public class Public extends SchemaImpl {
     public final Runbooks RUNBOOKS = Runbooks.RUNBOOKS;
 
     /**
+     * The table <code>public.team_members</code>.
+     */
+    public final TeamMembers TEAM_MEMBERS = TeamMembers.TEAM_MEMBERS;
+
+    /**
      * The table <code>public.teams</code>.
      */
     public final Teams TEAMS = Teams.TEAMS;
@@ -117,6 +123,7 @@ public class Public extends SchemaImpl {
             RuleVersions.RULE_VERSIONS,
             Rules.RULES,
             Runbooks.RUNBOOKS,
+            TeamMembers.TEAM_MEMBERS,
             Teams.TEAMS,
             Users.USERS
         );

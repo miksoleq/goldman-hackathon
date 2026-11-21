@@ -1,5 +1,6 @@
 package com.goldman.alerting.control.rules;
 
+import com.goldman.alerting.control.auth.Accounts;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +14,10 @@ class RuleController {
     private final RuleDocument parser;
     private final RuleCreation creation;
 
-    RuleController(RuleDocument parser, RuleCreation creation) {
+    private final Accounts accounts;
+
+    RuleController(RuleDocument parser, RuleCreation creation, Accounts accounts) {
+        this.accounts = accounts;
         this.parser = parser;
         this.creation = creation;
     }
@@ -21,21 +25,19 @@ class RuleController {
     @PostMapping(consumes={"application/yaml","application/x-yaml","text/yaml","application/json"})
     @ResponseStatus(HttpStatus.CREATED)
     RuleCreation.Created create(HttpServletRequest request) throws IOException {
+        var actor = accounts.require(request);
         String source = source(request);
-        return creation.create(parser.parse(source), source, actor(request));
+        return creation.create(parser.parse(source), source, actor.ref());
     }
 
     @PutMapping(path="/{id}", consumes={"application/yaml","application/x-yaml","text/yaml","application/json"})
     RuleCreation.Created update(@PathVariable("id") java.util.UUID id,
                                 @RequestHeader("If-Match") String expected, HttpServletRequest request) throws IOException {
+        var actor = accounts.require(request);
         if (!expected.matches("\"[1-9][0-9]*\"")) throw new IllegalArgumentException("Expected a quoted rule version in If-Match");
         int version = Integer.parseInt(expected.substring(1, expected.length() - 1));
         String source = source(request);
-        return creation.update(id, version, parser.parse(source), source, actor(request));
-    }
-
-    private static String actor(HttpServletRequest request) {
-        return request.getUserPrincipal() == null ? "system" : request.getUserPrincipal().getName();
+        return creation.update(id, version, parser.parse(source), source, actor.username());
     }
 
     private static String source(HttpServletRequest request) throws IOException {

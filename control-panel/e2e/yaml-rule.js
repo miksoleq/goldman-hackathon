@@ -22,6 +22,13 @@ route:
 runbook: auto
 stopProcessing: false
 `;
+  const login = page.getByRole("button", { name: "Log in", exact: true });
+  await page.getByRole("button", { name: /^(Log in|Log out)$/ }).first().waitFor();
+  if (await login.isVisible()) {
+    await login.click();
+    await page.getByRole("button", { name: "Demo Member" }).click();
+    await page.getByText("demo.member", { exact: true }).waitFor();
+  }
   await page.getByRole("button", { name: "Create rule", exact: true }).first().click();
   await page.getByRole("button", { name: "Write YAML" }).click();
   const editor = page.getByLabel("Rule YAML");

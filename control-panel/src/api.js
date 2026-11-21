@@ -1,4 +1,6 @@
-export async function fetchFeed(name, request = fetch) {
+import { sessionRequest } from "../../web-shared/session.js";
+
+export async function fetchFeed(name, request = sessionRequest) {
   const response = await request("/api/monitor/" + name, {
     headers: { Accept: "application/json" },
     cache: "no-store"
@@ -9,7 +11,7 @@ export async function fetchFeed(name, request = fetch) {
   return items;
 }
 
-export async function createRule(payload, request = fetch) {
+export async function createRule(payload, request = sessionRequest) {
   const response = await request("/api/rules", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -26,7 +28,7 @@ async function savedRule(response) {
   throw new Error(problem.message || problem.error || "Control could not save this rule.");
 }
 
-export async function saveRuleYaml(source, rule, request = fetch) {
+export async function saveRuleYaml(source, rule, request = sessionRequest) {
   const headers = { "Content-Type": "application/yaml", Accept: "application/json" };
   if (rule) headers["If-Match"] = '"' + rule.version + '"';
   const url = rule ? "/api/rules/" + encodeURIComponent(rule.id) : "/api/rules";

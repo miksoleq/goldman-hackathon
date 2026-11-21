@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify live automatic selection on a disposable Control/Engine/PostgreSQL stack."""
+from demo_session import login_cookie
 import argparse
 import json
 import subprocess
@@ -8,9 +9,12 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 
-def request(url, body=None):
+def request(url, body=None, cookie=None):
     data = json.dumps(body).encode() if body is not None else None
-    with urlopen(Request(url, data=data, headers={"Content-Type": "application/json"}), timeout=5) as response:
+    req = Request(url, data=data, headers={"Content-Type": "application/json"})
+    if cookie:
+        req.add_header("Cookie", cookie)
+    with urlopen(req, timeout=5) as response:
         return json.load(response)
 
 
@@ -30,7 +34,7 @@ def verify(engine, control, pg_container):
              '{{"path":"payload.run","op":"eq","value":"{run}"}}');""")
     rule = request(control + "/api/rules", {"name": "auto-" + run, "route": {"teams": [team]},
                    "match": {"path": "payload.run", "op": "eq", "value": run}, "title": "Incident",
-                   "runbook": "auto", "dedup": {"keys": ["payload.probe"]}})["id"]
+                   "runbook": "auto", "dedup": {"keys": ["payload.probe"]}}, cookie=login_cookie(control))["id"]
 
     def await_selection(expected):
         deadline = time.monotonic() + 20

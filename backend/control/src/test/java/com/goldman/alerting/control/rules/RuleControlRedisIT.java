@@ -60,6 +60,13 @@ class RuleControlRedisIT {
         db.insertInto(TEAMS, TEAMS.ID, TEAMS.NAME).values(teamId, teamName).execute();
     }
 
+    private void authorize(HttpHeaders headers) {
+        var login = http.postForEntity("/api/auth/login", java.util.Map.of(
+                "username", "demo.member", "password", "Runbook123!"), JsonNode.class);
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        headers.set(HttpHeaders.COOKIE, login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0]);
+    }
+
     @AfterEach
     void removeDatabaseFixtures() {
         if (ruleName != null) {
@@ -91,6 +98,7 @@ class RuleControlRedisIT {
                 runbook: {name: "%s", format: text, content: "Check {{payload.kind}}"}
                 """.formatted(ruleName, teamName, bookName);
         var headers = new HttpHeaders();
+        authorize(headers);
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
         var created = http.postForEntity("/api/rules", new HttpEntity<>(original, headers), JsonNode.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -130,6 +138,7 @@ class RuleControlRedisIT {
                 runbook: {name: "%s", format: text, content: "Check {{payload.kind}}"}
                 """.formatted(ruleName, teamName, bookName);
         HttpHeaders headers = new HttpHeaders();
+        authorize(headers);
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
 
         ResponseEntity<JsonNode> response = http.postForEntity(

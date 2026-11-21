@@ -1,3 +1,5 @@
+import { AccountMenu } from "../../web-shared/Auth.jsx";
+import { AlertNotification, useLiveAlerts } from "../../web-shared/LiveAlerts.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FEED_NAMES, fetchMonitorFeed } from "./api.js";
 
@@ -236,6 +238,7 @@ function EmptyState({ children }) {
 }
 
 function App() {
+  const live = useLiveAlerts();
   const [activeTab, setActiveTab] = useState("messages");
   const [selectedIds, setSelectedIds] = useState({});
   const [feeds, setFeeds] = useState(() =>
@@ -316,7 +319,7 @@ function App() {
     document.getElementById("tab-" + SECTIONS[nextIndex].id)?.focus();
   }
 
-  const feed = feeds[activeTab];
+  const feed = activeTab === "alerts" && live.items ? { items: live.items } : feeds[activeTab];
   const items = feed.items || [];
   const selected = items.find(item => itemId(activeTab, item) === selectedIds[activeTab]) || items[0];
   const rules = feeds.rules.items || [];
@@ -348,7 +351,7 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <h1>Event Monitor</h1>
-        <div className="header-actions">
+        <div className="header-actions"><AccountMenu />
           <div className="connection" data-state={connectionState} role="status" aria-live="polite">
             <span className="connection-mark" aria-hidden="true" />
             <span>{connection}</span>
@@ -358,6 +361,7 @@ function App() {
           </button>
         </div>
       </header>
+      <AlertNotification live={live} />
       <main>
         <div className="intro">
           <p>Review incoming messages and the rules, runbooks, and alerts connected to them.</p>

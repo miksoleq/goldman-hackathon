@@ -1,5 +1,12 @@
 async page => {
   await page.goto("http://127.0.0.1:8083/");
+  const login = page.getByRole("button", { name: "Log in", exact: true });
+  await page.getByRole("button", { name: /^(Log in|Log out)$/ }).first().waitFor();
+  if (await login.isVisible()) {
+    await login.click();
+    await page.getByRole("button", { name: "Demo Member" }).click();
+    await page.getByText("demo.member", { exact: true }).waitFor();
+  }
   await page.getByRole("button", { name: "Create rule" }).first().click();
   await page.getByLabel("Rule name").fill("Suggestion check");
   await page.getByLabel("Field name").fill("amount");

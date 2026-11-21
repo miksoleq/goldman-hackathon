@@ -8,6 +8,8 @@ import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
 import com.goldman.alerting.control.db.tables.RuleTeams.RuleTeamsPath;
 import com.goldman.alerting.control.db.tables.Rules.RulesPath;
+import com.goldman.alerting.control.db.tables.TeamMembers.TeamMembersPath;
+import com.goldman.alerting.control.db.tables.Users.UsersPath;
 import com.goldman.alerting.control.db.tables.records.TeamsRecord;
 
 import java.time.OffsetDateTime;
@@ -169,12 +171,33 @@ public class Teams extends TableImpl<TeamsRecord> {
         return _ruleTeams;
     }
 
+    private transient TeamMembersPath _teamMembers;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.team_members</code> table
+     */
+    public TeamMembersPath teamMembers() {
+        if (_teamMembers == null)
+            _teamMembers = new TeamMembersPath(this, null, Keys.TEAM_MEMBERS__TEAM_MEMBERS_TEAM_ID_FKEY.getInverseKey());
+
+        return _teamMembers;
+    }
+
     /**
      * Get the implicit many-to-many join path to the <code>public.rules</code>
      * table
      */
     public RulesPath rules() {
         return ruleTeams().rules();
+    }
+
+    /**
+     * Get the implicit many-to-many join path to the <code>public.users</code>
+     * table
+     */
+    public UsersPath users() {
+        return teamMembers().users();
     }
 
     @Override

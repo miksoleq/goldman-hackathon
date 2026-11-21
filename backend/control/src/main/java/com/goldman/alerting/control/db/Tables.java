@@ -13,6 +13,7 @@ import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
+import com.goldman.alerting.control.db.tables.TeamMembers;
 import com.goldman.alerting.control.db.tables.Teams;
 import com.goldman.alerting.control.db.tables.Users;
 
@@ -67,6 +68,11 @@ public class Tables {
      * The table <code>public.runbooks</code>.
      */
     public static final Runbooks RUNBOOKS = Runbooks.RUNBOOKS;
+
+    /**
+     * The table <code>public.team_members</code>.
+     */
+    public static final TeamMembers TEAM_MEMBERS = TeamMembers.TEAM_MEMBERS;
 
     /**
      * The table <code>public.teams</code>.

@@ -1,3 +1,5 @@
+import { AccountMenu, LoginForm, useAuth } from "../../web-shared/Auth.jsx";
+import { AlertNotification, useLiveAlerts } from "../../web-shared/LiveAlerts.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, Bell, BookOpen, Grid2X2, Inbox, ListFilter, Plus, RefreshCw, Search, ShieldCheck, BellRing } from "lucide-react";
 import YamlRuleEditor from "./YamlRuleEditor.jsx";
@@ -173,8 +175,10 @@ function RunbooksPage({ items }) {
 }
 
 export default function App() {
+  const live = useLiveAlerts();
   const [active, setActive] = useState("overview");
-  const [feeds, setFeeds] = useState(Object.fromEntries(FEEDS.map(name => [name, { items: [], loading: true, error: "" }])));
+  const { user, ready } = useAuth();
+  const [loadedFeeds, setFeeds] = useState(Object.fromEntries(FEEDS.map(name => [name, { items: [], loading: true, error: "" }])));
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [selectedRule, setSelectedRule] = useState(null);
@@ -198,18 +202,22 @@ export default function App() {
     void refresh();
   }
 
+  const feeds = live.items ? { ...loadedFeeds, alerts: { items: live.items, loading: false, error: "" } } : loadedFeeds;
   const rules = feeds.rules.items;
   return <div className="app-shell">
     <Sidebar active={active} onNavigate={navigate} ruleCount={rules.length} />
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb">Alerting <span>/</span> {creating ? "Create rule" : active[0].toUpperCase() + active.slice(1)}</div>
-      <div className="topbar-right"><span className="environment"><i /> Demo environment</span><button className="icon-button" aria-label="Refresh data" onClick={refresh}><RefreshCw size={15} aria-hidden="true" /></button></div>
+      <div className="topbar-right"><AccountMenu /><span className="environment"><i /> Demo environment</span><button className="icon-button" aria-label="Refresh data" onClick={refresh}><RefreshCw size={15} aria-hidden="true" /></button></div>
       </header>
+      <AlertNotification live={live} />
       {notice && <div className="success-banner" role="status">{notice}<button aria-label="Dismiss" onClick={() => setNotice("")}>×</button></div>}
       {Object.values(feeds).some(feed => feed.error) && <div className="warning-banner" role="alert">
         Control data could not be loaded. Verify that the backend is running, then <button className="text-button" onClick={refresh}>retry</button>.
       </div>}
-      {editing ? <YamlRuleEditor rule={editing} onCancel={() => { setEditing(null); void refresh(); }} onSaved={created} />
+      {(creating || editing) && !ready ? <p>Checking session…</p>
+        : (creating || editing) && !user ? <section className="page-content"><LoginForm title="Log in to manage rules" /></section>
+        : editing ? <YamlRuleEditor rule={editing} onCancel={() => { setEditing(null); void refresh(); }} onSaved={created} />
         : creating ? <RuleBuilder runbooks={feeds.runbooks.items} onCancel={() => setCreating(false)} onCreated={created} />
         : active === "overview" ? <Overview feeds={feeds} navigate={navigate} createRule={() => setCreating(true)} />
           : active === "rules" ? <RulesPage onEdit={setEditing} rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />

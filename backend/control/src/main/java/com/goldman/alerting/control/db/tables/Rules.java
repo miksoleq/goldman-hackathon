@@ -119,6 +119,11 @@ public class Rules extends TableImpl<RulesRecord> {
      */
     public final TableField<RulesRecord, String> UPDATED_BY = createField(DSL.name("updated_by"), SQLDataType.CLOB, this, "");
 
+    /**
+     * The column <code>public.rules.created_by_user_id</code>.
+     */
+    public final TableField<RulesRecord, UUID> CREATED_BY_USER_ID = createField(DSL.name("created_by_user_id"), SQLDataType.UUID, this, "");
+
     private Rules(Name alias, Table<RulesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -198,7 +203,19 @@ public class Rules extends TableImpl<RulesRecord> {
 
     @Override
     public List<ForeignKey<RulesRecord, ?>> getReferences() {
-        return Arrays.asList(Keys.RULES__RULES_RUNBOOK_ID_FKEY);
+        return Arrays.asList(Keys.RULES__RULES_CREATED_BY_USER_ID_FKEY, Keys.RULES__RULES_RUNBOOK_ID_FKEY);
+    }
+
+    private transient UsersPath _users;
+
+    /**
+     * Get the implicit join path to the <code>public.users</code> table.
+     */
+    public UsersPath users() {
+        if (_users == null)
+            _users = new UsersPath(this, Keys.RULES__RULES_CREATED_BY_USER_ID_FKEY, null);
+
+        return _users;
     }
 
     private transient RunbooksPath _runbooks;
@@ -258,14 +275,6 @@ public class Rules extends TableImpl<RulesRecord> {
      */
     public TeamsPath teams() {
         return ruleTeams().teams();
-    }
-
-    /**
-     * Get the implicit many-to-many join path to the <code>public.users</code>
-     * table
-     */
-    public UsersPath users() {
-        return ruleUsers().users();
     }
 
     @Override

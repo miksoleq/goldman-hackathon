@@ -2,6 +2,7 @@ package com.goldman.alerting.control.rules;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldman.alerting.contracts.RuleCreated;
+import com.goldman.alerting.control.auth.Accounts.UserRef;
 import com.goldman.alerting.contracts.Runbook;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
@@ -29,16 +30,16 @@ class RuleCreation {
     }
 
     @Transactional
-    public Created create(RuleDocument.Draft draft, String source, String actor) {
-        return save(null, 0, draft, source, actor);
+    public Created create(RuleDocument.Draft draft, String source, UserRef owner) {
+        return save(null, 0, draft, source, owner.username(), owner.id());
     }
 
     @Transactional
     public Created update(UUID id, int expectedVersion, RuleDocument.Draft draft, String source, String actor) {
-        return save(id, expectedVersion, draft, source, actor);
+        return save(id, expectedVersion, draft, source, actor, null);
     }
 
-    private Created save(UUID existingId, int expectedVersion, RuleDocument.Draft draft, String source, String actor) {
+    private Created save(UUID existingId, int expectedVersion, RuleDocument.Draft draft, String source, String actor, UUID ownerId) {
         var existing = existingId == null ? null : db.selectFrom(RULES).where(RULES.ID.eq(existingId))
                 .forUpdate().fetchOptional().orElseThrow(UnknownRule::new);
         if (existing != null && existing.getVersion() != expectedVersion) throw new VersionConflict();
@@ -62,6 +63,7 @@ class RuleCreation {
         fields.setVersion(version);
         UUID id;
         if (existing == null) {
+            fields.setCreatedByUserId(ownerId);
             id = db.insertInto(RULES).set(fields).onConflict(RULES.NAME).doNothing()
                     .returningResult(RULES.ID).fetchOptional(RULES.ID).orElseThrow(NameConflict::new);
         } else {

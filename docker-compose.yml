@@ -38,6 +38,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      additional_contexts:
+        webshared: ./web-shared
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
@@ -48,6 +50,8 @@ services:
   control-panel:
     build:
       context: ./control-panel
+      additional_contexts:
+        webshared: ./web-shared
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:${CONTROL_PANEL_PORT:-8083}:80"

@@ -30,12 +30,16 @@ wait_for_health() {
 wait_for_health 8081
 wait_for_health 8082
 
+cookies=$(mktemp)
+trap 'rm -f "$cookies"' EXIT
+curl -fsS -c "$cookies" http://localhost:8082/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"demo.member","password":"Runbook123!"}' >/dev/null
 run=$(uuidgen)
 "${compose[@]}" exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
 INSERT INTO teams(name) VALUES ('smoke-alerts') ON CONFLICT (name) DO NOTHING;
 SQL
 
-rule=$(curl -fsS http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- <<YAML
+rule=$(curl -fsS -b "$cookies" http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- <<YAML
 name: Smoke $run
 match:
   all:
@@ -64,7 +68,7 @@ SELECT count(*) FROM live_alert_inbox WHERE payload->>'ruleId' = :'rule' AND pay
 SQL
 )
 [[ "$count" == 1 ]] || { echo "Oczekiwano jednego alertu w bazie, znaleziono $count." >&2; exit 1; }
-curl -fsS http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- >/dev/null <<YAML
+curl -fsS -b "$cookies" http://localhost:8082/api/rules -H 'Content-Type: application/yaml' --data-binary @- >/dev/null <<YAML
 name: Smoke reuse $run
 title: Follow-up
 match: {path: payload.followUpRun, op: eq, value: "$run"}

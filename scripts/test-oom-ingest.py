@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise both packaged services using dedicated, disposable PostgreSQL and Redis."""
+from demo_session import login_cookie
 import json
 import re
 import subprocess
@@ -55,8 +56,10 @@ def app(stack, tmp, module, *options):
     return f"http://127.0.0.1:{port}", log
 
 
-def request(url, data=None, media="application/json", status=200):
+def request(url, data=None, media="application/json", status=200, cookie=None):
     req = Request(url, data=data, headers={"Content-Type": media})
+    if cookie:
+        req.add_header("Cookie", cookie)
     try:
         response = urlopen(req, timeout=5)
     except HTTPError as error:
@@ -94,7 +97,7 @@ match:
 severity: critical
 title: "OOM w {{meta.source}}"
 body: "{{payload.message | truncate: 300}}"
-""", "application/yaml", 201)["id"]
+""", "application/yaml", 201, cookie=login_cookie(control))["id"]
         eventually(lambda: f"Indexed rule ruleId={rule} " in engine_log.read_text(), "Engine snapshot")
 
         for text, matches in [(b"OOMKilled pid 12", True), (b"OOMKilled pid 98", True), (b"healthy", False)]:

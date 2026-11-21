@@ -119,6 +119,34 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         return (OffsetDateTime) get(6);
     }
 
+    /**
+     * Setter for <code>public.users.password_hash</code>.
+     */
+    public void setPasswordHash(String value) {
+        set(7, value);
+    }
+
+    /**
+     * Getter for <code>public.users.password_hash</code>.
+     */
+    public String getPasswordHash() {
+        return (String) get(7);
+    }
+
+    /**
+     * Setter for <code>public.users.role</code>.
+     */
+    public void setRole(String value) {
+        set(8, value);
+    }
+
+    /**
+     * Getter for <code>public.users.role</code>.
+     */
+    public String getRole() {
+        return (String) get(8);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -142,7 +170,7 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
     /**
      * Create a detached, initialised UsersRecord
      */
-    public UsersRecord(UUID id, String username, String displayName, String email, String phone, String timezone, OffsetDateTime createdAt) {
+    public UsersRecord(UUID id, String username, String displayName, String email, String phone, String timezone, OffsetDateTime createdAt, String passwordHash, String role) {
         super(Users.USERS);
 
         setId(id);
@@ -152,6 +180,8 @@ public class UsersRecord extends UpdatableRecordImpl<UsersRecord> {
         setPhone(phone);
         setTimezone(timezone);
         setCreatedAt(createdAt);
+        setPasswordHash(passwordHash);
+        setRole(role);
         resetChangedOnNotNull();
     }
 }
