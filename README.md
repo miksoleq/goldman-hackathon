@@ -141,14 +141,21 @@ dokument lub nieznana nazwa użytkownika, zespołu albo runbooka daje `400`, pow
 reguły `409`. Pełny YAML (wraz z komentarzami) zostaje w `rules.source_yaml`,
 a znormalizowana definicja v1 w `rules.definition`.
 
-Aby wysyłać zmiany, uruchom
-`RULES_KAFKA_ENABLED=true docker compose --profile kafka up --build -d postgres kafka control`.
-Po zatwierdzeniu transakcji control publikuje zdarzenie `rule.created` na
-`rules.created.v1` (zmienna `RULES_KAFKA_TOPIC`), z kluczem Kafka równym ID
-reguły. Treść zawiera ID i wersje, nazwę, priorytet, enabled, teamIds, userIds, runbookId
-oraz definition. Przy wyłączonym publisherze lub niedostępnym brokerze wpis
-pozostaje w `rule_created_outbox`. Publikacja jest co najmniej jednokrotna;
-konsument powinien rozpoznawać powtórzenia po `(ruleId, version)`.
+Uruchom oba serwisy poleceniem `docker compose up --build -d postgres redis control engine`.
+Compose domyślnie włącza dystrybucję reguł. Poza Compose ustaw w obu serwisach
+`RULES_REDIS_ENABLED=true` i wskaż ten sam Redis.
+
+Control zapisuje regułę i wpis w `rule_created_outbox` w jednej transakcji.
+Publisher zapisuje pełny komunikat pod ID reguły w hashu `rules.created.v1:snapshot`
+i publikuje go na kanale Redis Pub/Sub `rules.created.v1` w jednej operacji.
+Gdy Redis jest niedostępny, Control ponawia wysyłkę z outboxa. Nazwę kanału
+można zmienić przez `RULES_REDIS_CHANNEL`, a nazwa hasha otrzymuje sufiks `:snapshot`.
+
+Każda replika Engine subskrybuje kanał i dodaje nową regułę do swojego indeksu
+w pamięci. Po starcie lub ponownym połączeniu uzupełnia reguły z hasha,
+pomijając już zastosowane wersje. Compose utrwala dane Redisa w wolumenie
+`redis_data`. Przy przejściu z Kafki migracja V4 kolejkuje istniejące reguły
+do wysłania przez Redis.
 
 ### Alert po dopasowaniu
 

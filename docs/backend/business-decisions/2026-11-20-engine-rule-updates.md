@@ -1,5 +1,7 @@
 # Business decision note
 
+Superseded for rule transport on 2026-11-21. See the [current Redis contract](../business-rules.md#rule-created-redis-contract).
+
 - **Date:** 2026-11-20
 - **Related PR:** Not opened yet.
 - **Context:** Control needs to notify Engine when a rule is created so Engine can compile its condition and add it to the in-memory matching index without database access.

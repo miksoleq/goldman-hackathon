@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.*;
 
-/** Control's Kafka envelope for a rule sent to Engine for indexing. */
-public record RuleCreatedEvent(String ruleId, boolean enabled, JsonNode definition, String name, List<UUID> teams, List<UUID> users) {
-    public RuleCreatedEvent(String ruleId, boolean enabled, JsonNode definition) {
-        this(ruleId, enabled, definition, ruleId, List.of(), List.of());
+/** Control's rule-created envelope for a rule sent to Engine for indexing. */
+public record RuleCreatedEvent(String ruleId, int version, boolean enabled, JsonNode definition, String name, List<UUID> teams, List<UUID> users) {
+    public RuleCreatedEvent(String ruleId, int version, boolean enabled, JsonNode definition) {
+        this(ruleId, version, enabled, definition, ruleId, List.of(), List.of());
     }
 
     public RuleCreatedEvent {
@@ -63,7 +63,11 @@ public record RuleCreatedEvent(String ruleId, boolean enabled, JsonNode definiti
         if (definition == null || !definition.isObject()) {
             throw new InvalidRuleDefinitionException("Rule event definition must be an object");
         }
-        return new RuleCreatedEvent(ruleId.textValue(), enabled.booleanValue(), definition,
+        JsonNode version = event.get("version");
+        if (version != null && (!version.isIntegralNumber() || !version.canConvertToInt() || version.intValue() < 1)) {
+            throw new InvalidRuleDefinitionException("Rule event version must be a positive integer");
+        }
+        return new RuleCreatedEvent(ruleId.textValue(), version == null ? 1 : version.intValue(), enabled.booleanValue(), definition,
                 event.path("name").asText(ruleId.textValue()), recipients(event, "teamIds"), recipients(event, "userIds"));
     }
     private static List<UUID> recipients(JsonNode event, String key) {

@@ -53,7 +53,7 @@ class RuleCreatedEventTest {
     @Test
     void doesNotExposeMutableDefinitionState() throws Exception {
         JsonNode definition = objectMapper.readTree("{\"v\":1,\"title\":\"T\",\"match\":{\"path\":\"payload.kind\",\"op\":\"eq\",\"value\":\"a\"}} ");
-        RuleCreatedEvent event = new RuleCreatedEvent("rule-1", true, definition);
+        RuleCreatedEvent event = new RuleCreatedEvent("rule-1", 1, true, definition);
         ((ObjectNode) event.definition()).put("title", "mutated");
 
         assertEquals("T", event.definition().path("title").asText());

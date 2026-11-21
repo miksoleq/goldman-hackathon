@@ -17,7 +17,7 @@ Read the relevant [backend rules](README.md) before working in this repository. 
 
 ## Build, run, and test
 
-For every feature or bug fix, add or update automated [unit tests](rules/unit-tests.md) for changed logic and [integration tests](rules/integration-tests.md) for affected boundaries. For example, test rule validation in isolation and exercise rule creation through HTTP against PostgreSQL and Kafka. Keep the tests alongside the change, run both relevant suites before handoff, and report the commands, results, and any blockers.
+For every feature or bug fix, add or update automated [unit tests](rules/unit-tests.md) for changed logic and [integration tests](rules/integration-tests.md) for affected boundaries. For example, test rule validation in isolation and exercise rule creation through HTTP against PostgreSQL and Redis. Keep the tests alongside the change, run both relevant suites before handoff, and report the commands, results, and any blockers.
 
 After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.
 

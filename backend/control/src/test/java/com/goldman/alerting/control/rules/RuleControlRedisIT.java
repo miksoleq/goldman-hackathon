@@ -7,13 +7,7 @@ import static com.goldman.alerting.control.db.Tables.TEAMS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.time.Duration;
-import java.util.Map;
 import java.util.UUID;
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.jooq.DSLContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,29 +20,20 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "rules.kafka.enabled=true",
-                "rules.kafka.topic=rules.created.v1",
-                "rules.kafka.poll-ms=3600000"
+                "rules.redis.enabled=true",
+                "rules.redis.channel=rules.created.it.control",
+                "rules.redis.poll-ms=3600000"
         }
 )
-@EmbeddedKafka(
-        partitions = 1,
-        topics = RuleControlKafkaIT.TOPIC,
-        bootstrapServersProperty = "spring.kafka.bootstrap-servers"
-)
 @DirtiesContext
-class RuleControlKafkaIT {
+class RuleControlRedisIT {
 
-    static final String TOPIC = "rules.created.v1";
+    static final String CHANNEL = "rules.created.it.control";
 
     @Autowired
     private TestRestTemplate http;
@@ -60,7 +45,7 @@ class RuleControlKafkaIT {
     private RulePublisher publisher;
 
     @Autowired
-    private EmbeddedKafkaBroker kafkaBroker;
+    private org.springframework.data.redis.core.StringRedisTemplate redis;
 
     private UUID teamId;
     private String teamName;
@@ -104,36 +89,25 @@ class RuleControlKafkaIT {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
 
-        Map<String, Object> consumerProperties = KafkaTestUtils.consumerProps(
-                "control-rule-it-" + teamId, "false", kafkaBroker);
-        consumerProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        DefaultKafkaConsumerFactory<String, String> consumerFactory = new DefaultKafkaConsumerFactory<>(
-                consumerProperties, new StringDeserializer(), new StringDeserializer());
-        try (Consumer<String, String> consumer = consumerFactory.createConsumer()) {
-            kafkaBroker.consumeFromAnEmbeddedTopic(consumer, TOPIC);
+        ResponseEntity<JsonNode> response = http.postForEntity(
+                "/api/rules", new HttpEntity<>(yaml, headers), JsonNode.class);
 
-            ResponseEntity<JsonNode> response = http.postForEntity(
-                    "/api/rules", new HttpEntity<>(yaml, headers), JsonNode.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        JsonNode responseBody = response.getBody();
+        assertThat(responseBody).isNotNull();
+        String ruleId = responseBody.path("id").asText();
+        assertThat(ruleId).isNotBlank();
 
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            JsonNode responseBody = response.getBody();
-            assertThat(responseBody).isNotNull();
-            String ruleId = responseBody.path("id").asText();
-            assertThat(ruleId).isNotBlank();
-
-            publisher.publish();
-            ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(
-                    consumer, TOPIC, Duration.ofSeconds(10));
-            JsonNode event = new com.fasterxml.jackson.databind.ObjectMapper().readTree(record.value());
-
-            assertThat(record.key()).isEqualTo(ruleId);
-            assertThat(event.path("type").asText()).isEqualTo("rule.created");
-            assertThat(event.path("ruleId").asText()).isEqualTo(ruleId);
-            assertThat(event.path("enabled").asBoolean()).isTrue();
-            assertThat(event.path("priority").asInt()).isEqualTo(10);
-            assertThat(event.path("definition").path("v").asInt()).isEqualTo(1);
-            assertThat(event.path("definition").at("/match/value/properties/kind/type").asText()).isEqualTo("string");
-            assertThat(event.path("teamIds").get(0).asText()).isEqualTo(teamId.toString());
-        }
+        publisher.publish();
+        String raw = redis.<String, String>opsForHash().get(CHANNEL + ":snapshot", ruleId);
+        JsonNode event = new com.fasterxml.jackson.databind.ObjectMapper().readTree(raw);
+        redis.opsForHash().delete(CHANNEL + ":snapshot", ruleId);
+        assertThat(event.path("type").asText()).isEqualTo("rule.created");
+        assertThat(event.path("ruleId").asText()).isEqualTo(ruleId);
+        assertThat(event.path("enabled").asBoolean()).isTrue();
+        assertThat(event.path("priority").asInt()).isEqualTo(10);
+        assertThat(event.path("definition").path("v").asInt()).isEqualTo(1);
+        assertThat(event.path("definition").at("/match/value/properties/kind/type").asText()).isEqualTo("string");
+        assertThat(event.path("teamIds").get(0).asText()).isEqualTo(teamId.toString());
     }
 }

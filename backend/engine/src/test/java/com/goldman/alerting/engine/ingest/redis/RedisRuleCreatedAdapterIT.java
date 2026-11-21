@@ -1,4 +1,4 @@
-package com.goldman.alerting.engine.ingest.kafka;
+package com.goldman.alerting.engine.ingest.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,16 +12,16 @@ import java.time.Duration;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.concurrent.TimeUnit;
 import com.goldman.alerting.schema.LiveAlert;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.data.redis.core.StringRedisTemplate;
+
 import org.springframework.test.annotation.DirtiesContext;
 import org.awaitility.Awaitility;
 
@@ -29,24 +29,18 @@ import org.awaitility.Awaitility;
         classes = EngineApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
-                "rules.kafka.enabled=true",
-                "rules.kafka.consumer-group=engine-rules-integration",
-                "ingest.redis.enabled=false",
-                "spring.kafka.consumer.auto-offset-reset=earliest"
+                "rules.redis.enabled=true",
+                "rules.redis.channel=rules.created.it",
+                "ingest.redis.enabled=false"
         }
 )
-@EmbeddedKafka(
-        partitions = 1,
-        topics = KafkaRuleCreatedAdapterIT.TOPIC,
-        bootstrapServersProperty = "spring.kafka.bootstrap-servers"
-)
 @DirtiesContext
-class KafkaRuleCreatedAdapterIT {
+class RedisRuleCreatedAdapterIT {
 
-    static final String TOPIC = "rules.created.v1";
+    static final String CHANNEL = "rules.created.it";
 
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private StringRedisTemplate redis;
 
     @Autowired
     private RuleIndexManager manager;
@@ -54,7 +48,6 @@ class KafkaRuleCreatedAdapterIT {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired private StringRedisTemplate redis;
     private static final String stream = "it:events:" + UUID.randomUUID();
     @org.springframework.test.context.DynamicPropertySource
     static void streamProperty(org.springframework.test.context.DynamicPropertyRegistry registry) {
@@ -65,14 +58,14 @@ class KafkaRuleCreatedAdapterIT {
     private com.goldman.alerting.engine.ingest.IngestionService ingestion;
 
     @Test
-    void kafkaRuleCreationBuildsBucketsAndHandlesDuplicateOutboxDelivery() throws Exception {
+    void redisRuleCreationBuildsBucketsAndHandlesDuplicateOutboxDelivery() throws Exception {
         String id = UUID.randomUUID().toString();
         JsonNode paymentFailed = json("{\"payload\":{\"kind\":\"payment_failed\"}}");
         JsonNode customerLocked = json("{\"payload\":{\"kind\":\"customer_locked\"}}");
         RuleIndex emptySnapshot = manager.snapshot();
 
         String message = message(id, "payment_failed");
-        publish(id, message);
+        redis.convertAndSend(CHANNEL, message);
         Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertEquals(List.of(id), ids(manager.match(paymentFailed))));
 
@@ -110,16 +103,54 @@ class KafkaRuleCreatedAdapterIT {
         assertEquals(0, emptySnapshot.ruleCount());
         assertTrue(createdSnapshot.match(customerLocked).isEmpty());
 
-        publish(id, message);
-        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> manager.snapshot() != createdSnapshot);
-        assertEquals(1, manager.snapshot().ruleCount());
+        redis.convertAndSend(CHANNEL, message);
+        String nextId = UUID.randomUUID().toString();
+        redis.convertAndSend(CHANNEL, message(nextId, "customer_locked"));
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> manager.snapshot().ruleCount() == 2);
         assertEquals(List.of(id), ids(createdSnapshot.match(paymentFailed)));
         assertTrue(createdSnapshot.match(customerLocked).isEmpty());
-        assertEquals(1, manager.snapshot().ruleCount());
+        assertEquals(2, manager.snapshot().ruleCount());
     }
 
-    private void publish(String id, String message) throws Exception {
-        kafkaTemplate.send(TOPIC, id, message).get(10, TimeUnit.SECONDS);
+    @Test
+    void bothLiveReplicasIndexTheSamePublication() throws Exception {
+        String channel = CHANNEL + ".replicas";
+        var factory = redis.getRequiredConnectionFactory();
+        var first = new RuleIndexManager(List.of());
+        var second = new RuleIndexManager(List.of());
+        var config = new RuleSubscription();
+        var listeners = List.of(
+                config.ruleSubscriptionContainer(factory, new RedisRuleCreatedAdapter(objectMapper, first, redis, channel), channel),
+                config.ruleSubscriptionContainer(factory, new RedisRuleCreatedAdapter(objectMapper, second, redis, channel), channel));
+        try {
+            for (var listener : listeners) {
+                listener.afterPropertiesSet();
+                listener.start();
+            }
+            String id = UUID.randomUUID().toString();
+            var envelope = json("{\"payload\":{\"kind\":\"broadcast\"}}");
+            assertEquals(2L, redis.convertAndSend(channel, message(id, "broadcast")));
+            Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+                assertEquals(List.of(id), ids(first.match(envelope)));
+                assertEquals(List.of(id), ids(second.match(envelope)));
+            });
+        } finally {
+            for (var listener : listeners) listener.destroy();
+        }
+    }
+
+    @Test
+    void disconnectedReplicaRestoresRulesWithoutANewPublication() throws Exception {
+        var replica = new RuleIndexManager(List.of());
+        var adapter = new RedisRuleCreatedAdapter(objectMapper, replica, redis, CHANNEL + ".recovery");
+        String id = UUID.randomUUID().toString();
+        redis.opsForHash().put(CHANNEL + ".recovery:snapshot", id, message(id, "offline"));
+        try {
+            adapter.recover();
+            assertEquals(List.of(id), ids(replica.match(json("{\"payload\":{\"kind\":\"offline\"}}"))));
+        } finally {
+            redis.opsForHash().delete(CHANNEL + ".recovery:snapshot", id);
+        }
     }
 
     private String message(String id, String kind) {

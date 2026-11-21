@@ -23,10 +23,9 @@ services:
     ports:
       - "127.0.0.1:8082:8082"
     environment:
-      RULES_KAFKA_TOPIC: ${RULES_KAFKA_TOPIC:-rules.created.v1}
-      RULES_KAFKA_ENABLED: ${RULES_KAFKA_ENABLED:-false}
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-      SPRING_DATA_REDIS_HOST: redis
+      RULES_REDIS_CHANNEL: ${RULES_REDIS_CHANNEL:-rules.created.v1}
+      RULES_REDIS_ENABLED: ${RULES_REDIS_ENABLED:-true}
+      REDIS_HOST: redis
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-alerting}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-alerting}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -38,6 +37,8 @@ services:
 
   redis:
     image: redis:7.4-alpine
+    volumes:
+      - redis_data:/data
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     ports:
       - "6379:6379"
@@ -58,9 +59,8 @@ services:
       REDIS_HOST: redis
       INGEST_KAFKA_ENABLED: ${INGEST_KAFKA_ENABLED:-false}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      RULES_KAFKA_ENABLED: ${RULES_KAFKA_ENABLED:-false}
-      RULES_KAFKA_TOPIC: ${RULES_KAFKA_TOPIC:-rules.created.v1}
-      RULES_KAFKA_CONSUMER_GROUP: ${RULES_KAFKA_CONSUMER_GROUP:-engine-rules}
+      RULES_REDIS_ENABLED: ${RULES_REDIS_ENABLED:-true}
+      RULES_REDIS_CHANNEL: ${RULES_REDIS_CHANNEL:-rules.created.v1}
     depends_on:
       redis:
         condition: service_healthy
@@ -105,5 +105,6 @@ services:
     command: ["mvn", "-B", "-pl", "control,engine", "-am", "clean", "verify"]
 
 volumes:
+  redis_data:
   postgres_data:
   maven_cache:
