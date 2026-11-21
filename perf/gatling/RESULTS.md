@@ -55,3 +55,17 @@ A second run enabled all three channels (`PERF_CHANNELS=ui,email,sms`) at the sa
 During the asynchronous drain, a live authenticated SSE subscriber received 561 `notifications.changed` push events in an 8-second sample. The SSE contract sends a change hint without an event ID, so individual push events cannot currently be correlated to an ingested event or measured for browser paint time. Email/SMS `sent` means the local Mailpit/SMS simulators accepted the request; `pending` is still queued. The current schema does not record provider-acceptance timestamps, so exact email/SMS latency is not available. The all-channel Gatling report is `target/gatling/engineingestsimulation-20261121073243343/index.html`.
 
 These runs pass Engine HTTP ingestion but fail the configured real-time end-to-end 1,000 RPS target (`MAX_UI_P95_MS=5000`): Control builds a large alert/notification backlog and external channel workers do not keep up. The result is direct evidence that a successful HTTP `202` is not a successful recipient delivery at this rate. The tests use the repository's simulator providers, not real SMTP/SMS networks. The automatic p95 threshold was added after collecting these measurements; rerunning either profile now exits nonzero after printing the channel counts.
+
+## Reduced-rate all-channel run — 200 RPS
+
+To check whether the backlog was only caused by 1,000 RPS, the same three-replica Compose setup ran `PERF_CHANNELS=ui,email,sms RPS=200 DURATION_SECONDS=60 RAMP_SECONDS=15`. Gatling accepted all 13,507 events with no HTTP failures (Engine p95 3 ms, p99 4 ms, max 30 ms). Control eventually wrote the UI notifications, but still missed the 5-second recipient target:
+
+| Measurement | Result |
+|---|---:|
+| UI notification commit p50 / p95 | 34,991 / 66,300 ms |
+| Same end-to-end p99 / max | 69,816 / 70,714 ms |
+| UI notifications | 13,507 sent |
+| Email mock | 566 sent; 12,941 pending |
+| SMS mock | 566 sent; 12,941 pending |
+
+The runner exited nonzero on the configured UI p95 threshold. This reduced-rate test still shows a significant Control and outbound-worker backlog; lowering Engine input to 200 RPS alone does not achieve near-real-time delivery. Gatling report: `target/gatling/engineingestsimulation-20261121074928285/index.html`.
