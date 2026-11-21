@@ -17,4 +17,14 @@ Read the [frontend guidelines](README.md) before working in this repository. Rea
 
 For features and bug fixes, add or update automated unit tests for changed UI logic and integration tests for interactions between components, forms, and the API client. Keep the tests alongside the change, run the relevant suites before handoff, and report the commands, results, and any blockers.
 
-After the first successful run, record prerequisites, required environment variable names, and verified commands here. Update them when setup changes.
+### Event Monitor
+
+- **Prerequisites:** Node.js 24 and npm 11. The Control service, PostgreSQL, and Redis provide monitor data. Docker Compose reads local settings from .env.
+- **Install:** Run npm ci from frontend/.
+- **Unit tests:** Run npm test from frontend/.
+- **Production build:** Run npm run build from frontend/.
+- **Browser development:** Start Control with docker compose up --build -d control, then run npm run dev from frontend/. Vite serves the UI on port 5173 and proxies /api requests to Control on port 8082.
+- **Full demo:** Run docker compose up --build -d. The frontend is served on http://localhost:8080 by default. FRONTEND_PORT changes its host port.
+- **Browser verification:** Use playwright-cli open http://localhost:8080, navigate the Messages, Rules, Runbooks, and Alerts tabs, inspect an item, then resize the page to a narrow viewport.
+
+The npm unit and build commands and the full backend Compose test suite passed before the latest rebase. Full Compose services are running, and `playwright-cli open http://localhost:8080` loaded the Event Monitor page. Cross-section interaction, mobile layout, console, and network checks were not completed after the rebase.
