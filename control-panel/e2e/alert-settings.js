@@ -1,5 +1,5 @@
 async page => {
-  await page.route("**/api/teams", route => route.fulfill({ json: [{ name: "Market Risk" }, { name: "Operations" }] }));
+  await page.route("**/api/teams", route => route.fulfill({ json: [{ name: "Market Risk" }, ...Array.from({ length: 12 }, (_, index) => ({ name: "Market " + index })), { name: "Operations" }] }));
   await page.route("**/api/users", route => route.fulfill({ json: [{ username: "analyst" }] }));
   await page.reload();
   await page.getByRole("button", { name: "Create rule" }).first().click();
@@ -9,7 +9,10 @@ async page => {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   if (!(await page.getByRole("alert").innerText()).includes("at least one")) throw Error("Missing recipient validation");
-  await page.getByRole("combobox", { name: "Teams" }).fill("Market");
+  await page.getByRole("combobox", { name: "Teams" }).fill("Ma");
+  if (await page.getByRole("option", { name: "Market Risk" }).count()) throw Error("Suggestions shown before three characters");
+  await page.getByRole("combobox", { name: "Teams" }).fill("Mar");
+  if (await page.getByRole("listbox", { name: "Teams results" }).getByRole("option").count() !== 10) throw Error("Suggestion limit is not ten");
   await page.getByRole("button", { name: "Market Risk", exact: true }).click();
   await page.getByRole("combobox", { name: "Users" }).fill("analyst");
   await page.getByRole("button", { name: "analyst", exact: true }).click();

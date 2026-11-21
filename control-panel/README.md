@@ -14,6 +14,8 @@ npm run dev
 
 Open `http://localhost:5174`. Vite proxies `/api` requests to Control on port 8082.
 
+To run the panel with Docker Compose instead, run `docker compose up --build -d` from the repository root and open `http://localhost:8083`. Set `CONTROL_PANEL_PORT` to change its host port.
+
 ## Checks
 
 Run `npm test` and `npm run build` from this folder.

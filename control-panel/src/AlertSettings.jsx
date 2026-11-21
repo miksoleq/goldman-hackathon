@@ -23,7 +23,10 @@ function RecipientPicker({ label, endpoint, value, onChange, onBlur }) {
       .catch(error => { if (error.name !== "AbortError") setError("Directory unavailable. Enter an exact name and press Enter."); });
     return () => controller.abort();
   }, [endpoint]);
-  const options = items.filter(name => !selected.includes(name) && name.toLowerCase().includes(query.toLowerCase()));
+  const search = query.trim().toLowerCase();
+  const options = search.length < 3 ? [] : items
+    .filter(name => !selected.includes(name) && name.toLowerCase().includes(search))
+    .slice(0, 10);
   function add(name) {
     const next = name.trim();
     if (next && !selected.includes(next)) onChange([...selected, next].join(","));
@@ -41,6 +44,8 @@ function RecipientPicker({ label, endpoint, value, onChange, onBlur }) {
           setOpen(false);
         }
       }} aria-expanded={open} aria-autocomplete="list" role="combobox" /></label>
+    {open && !error && search.length < 3 && <p className="field-help">Type at least 3 characters to see suggestions.</p>}
+    {open && !error && search.length >= 3 && options.length === 0 && <p className="field-help">No matching recipients found.</p>}
     {open && options.length > 0 && <ul className="picker-options" role="listbox" aria-label={label + " results"}>
       {options.map(name => <li key={name} role="option" aria-selected="false">
         <button type="button" onMouseDown={event => event.preventDefault()} onClick={() => { add(name); setOpen(false); }}>{name}</button>

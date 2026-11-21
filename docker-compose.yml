@@ -45,6 +45,16 @@ services:
       control:
         condition: service_started
 
+  control-panel:
+    build:
+      context: ./control-panel
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${CONTROL_PANEL_PORT:-8083}:80"
+    depends_on:
+      control:
+        condition: service_started
+
   redis:
     image: redis:7.4-alpine
     volumes:

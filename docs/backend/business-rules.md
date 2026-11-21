@@ -1,5 +1,11 @@
 # Business Rules
 
+### Recipient directory
+
+- **Expected behavior** — Control returns team names at `GET /api/teams` and usernames at `GET /api/users`, ordered by name. These names match the identifiers accepted when creating a rule.
+- **Exceptions and boundaries** — Empty directories return empty arrays. Directory responses exclude contact information.
+- **Verification** — `RecipientControllerTest` covers controller delegation; `RecipientControllerIT` checks persisted records through HTTP.
+
 Use this file for current business behavior and agreed contracts between components. Update an entry when expected behavior or the contract changes.
 
 Document a change in the same commit as the implementation and focused tests. For a bug fix, add a regression case when practical.
