@@ -97,8 +97,10 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
     <section className="settings-section">
       <div className="settings-heading"><h3>Alert content &amp; appearance</h3><p>Write the alert recipients will see.</p></div>
       <div className="settings-grid">
-        <label>Severity<span className={"severity-select severity-" + draft.severity}><span className="severity-dot" /><select value={draft.severity} onChange={event => update({ severity: event.target.value })}>
-          {severities.map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></span></label>
+        <label>Severity<input list="rule-severity-values" value={draft.severity} required
+          placeholder="{{payload.level | default: medium}}" onChange={event => update({ severity: event.target.value })} />
+          <datalist id="rule-severity-values">{severities.map(value => <option key={value} value={value} />)}</datalist>
+          <span className="field-help">Choose a level or enter a template.</span></label>
         <label>Alert title<input ref={titleRef} maxLength="500" value={draft.title} onFocus={() => setActiveField("title")} onChange={event => update({ title: event.target.value })} placeholder={draft.name} />
           <span className="field-help">Supports variables such as {"{{payload.field}}"}.</span></label>
         <label className="span-all">Alert message<textarea ref={bodyRef} rows="4" maxLength="5000" value={draft.body}
@@ -108,7 +110,7 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
         {variables.map(path => <button key={path} type="button" className="variable-chip" onMouseDown={event => event.preventDefault()} onClick={() => insertVariable(path)}>{"{{" + path + "}}"}</button>)}
       </div></div>
       <div className="alert-preview"><span className="preview-label">ALERT PREVIEW</span><div className="preview-content">
-        <span className={"preview-severity severity-" + draft.severity}><span className="severity-dot" />{draft.severity}</span>
+        <span className={"preview-severity severity-" + (severities.includes(draft.severity) ? draft.severity : "custom")}><span className="severity-dot" />{draft.severity}</span>
         <strong>{draft.title || draft.name || "Alert title"}</strong><p>{draft.body || "Your alert message will appear here."}</p>
         <small>Template variables are shown as placeholders until an event is received.</small>
       </div></div>
@@ -119,7 +121,7 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
         <option value="auto">Use automatic assignment</option><option value="none">No runbook</option>
         {runbooks.filter(item => item.enabled).map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
       </select><span className="field-help">Attach step-by-step instructions or automated actions shown when this alert fires.</span></label>
-      <p className="field-help">The runbook selection is saved with the rule. Engine does not currently attach it to generated alerts.</p>
+      <p className="field-help">A named runbook is rendered with the event and stored with the alert.</p>
     </section>
     <details className="settings-section advanced-settings"><summary>Noise control &amp; advanced settings</summary>
       <div className="settings-heading"><h3>Deduplication</h3><p>Configure how duplicate events are identified within a time window.</p>

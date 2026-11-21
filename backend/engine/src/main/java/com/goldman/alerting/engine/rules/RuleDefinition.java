@@ -3,9 +3,7 @@ package com.goldman.alerting.engine.rules;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.goldman.alerting.contracts.RuleCreated;
 import java.util.UUID;
-import java.util.Iterator;
 import java.util.Objects;
-import java.util.Set;
 
 /** The matching-relevant projection of a validated {@code rules.definition} row. */
 public record RuleDefinition(String id, Condition condition, AlertSpec alert, String name, int priority,
@@ -14,10 +12,6 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert, St
         this(id, condition, alert, id, 100, false, Deduplication.DEFAULT);
     }
     public RuleDefinition(String id, Condition condition) { this(id, condition, null); }
-
-    private static final Set<String> V1_KEYS = Set.of(
-            "v", "match", "severity", "title", "body", "dedup", "stopProcessing", "runbookMode"
-    );
 
     public RuleDefinition {
         if (id == null || id.isBlank()) {
@@ -34,9 +28,9 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert, St
             throw new InvalidRuleDefinitionException("Expected UUID ruleId");
         }
         var definition = event.definition();
-        var rule = RuleDefinition.fromV1(id, definition);
+        var rule = parseDefinition(id, definition);
         return new RuleDefinition(id, rule.condition(),
-                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook()),
+                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook(), event.runbookId()),
                 event.name(), event.priority(), rule.stopProcessing(), rule.dedup());
     }
 
@@ -45,34 +39,17 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert, St
      * validate the complete document against rule-definition.v1.schema.json.
      */
     public static RuleDefinition fromV1(String id, JsonNode definition) {
-        if (definition == null || !definition.isObject()) {
-            throw new InvalidRuleDefinitionException("Rule definition must be a JSON object");
+        var rule = parseDefinition(id, definition);
+        for (var key : java.util.List.of("title", "body", "severity")) {
+            if (definition.has(key)) RuleTemplate.compile(definition.get(key).textValue(), id, id);
         }
-        Iterator<String> names = definition.fieldNames();
-        while (names.hasNext()) {
-            String name = names.next();
-            if (!V1_KEYS.contains(name)) {
-                throw new InvalidRuleDefinitionException("Unknown rule-definition v1 key: " + name);
-            }
-        }
+        return rule;
+    }
 
-        JsonNode version = definition.get("v");
-        if (version == null || !version.isIntegralNumber() || version.intValue() != 1) {
-            throw new InvalidRuleDefinitionException("Unsupported or missing rule-definition version");
-        }
-        JsonNode title = definition.get("title");
-        if (title == null || !title.isTextual() || title.textValue().isEmpty() || title.textValue().length() > 500) {
-            throw new InvalidRuleDefinitionException("Rule definition requires a title of 1 to 500 characters");
-        }
-        JsonNode match = definition.get("match");
-        if (match == null) {
-            throw new InvalidRuleDefinitionException("Rule definition requires match");
-        }
+    private static RuleDefinition parseDefinition(String id, JsonNode definition) {
+        var condition = RuleSyntax.parse(definition);
         var stop = definition.path("stopProcessing");
-        if (!stop.isMissingNode() && !stop.isBoolean()) {
-            throw new InvalidRuleDefinitionException("stopProcessing must be a boolean");
-        }
-        return new RuleDefinition(id, ConditionParser.parse(match), null, id, 100,
+        return new RuleDefinition(id, condition, null, id, 100,
                 stop.asBoolean(false), Deduplication.compile(definition.path("dedup")));
     }
 }

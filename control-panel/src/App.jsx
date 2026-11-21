@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, Bell, BookOpen, Grid2X2, Inbox, ListFilter, Plus, RefreshCw, Search, ShieldCheck, BellRing } from "lucide-react";
+import YamlRuleEditor from "./YamlRuleEditor.jsx";
 import RuleBuilder from "./RuleBuilder.jsx";
 import { OPERATORS } from "./ruleModel.js";
 import { fetchFeed } from "./api.js";
@@ -86,26 +87,53 @@ function Empty({ title, text, action, actionLabel = "Create rule" }) {
     {action && <button className="secondary-button" onClick={action}>{actionLabel}</button>}</div>;
 }
 
-function RuleDetails({ rule }) {
+function RuleDetails({ rule, status, onEdit }) {
   const definition = rule.definition || {};
   return <aside className="detail-panel">
     <div className="detail-eyebrow">RULE · VERSION {rule.version}</div><h2>{rule.name}</h2>
     <span className={"status-pill " + (rule.enabled ? "enabled" : "disabled")}>{rule.enabled ? "Enabled" : "Disabled"}</span>
+    <p>Engine · {status ? "v" + status.version + " " + status.state : "Awaiting snapshot"}{status?.reason && " · " + status.reason}</p>
+    <button type="button" className="secondary-button" onClick={() => onEdit(rule)}>Edit YAML</button>
     <section><h3>When this rule matches</h3><p className="condition-text">{conditionDescription(definition.match)}</p></section>
     <section><h3>Alert settings</h3><dl className="detail-list"><div><dt>Severity</dt><dd>{definition.severity || "medium"}</dd></div>
       <div><dt>Priority</dt><dd>{rule.priority}</dd></div><div><dt>Title</dt><dd>{definition.title || rule.name}</dd></div>
-      <div><dt>Runbook</dt><dd>{rule.runbookId || "Automatic assignment"}</dd></div>
+      <div><dt>Runbook</dt><dd>{rule.runbookId || (definition.runbookMode === "none" ? "No runbook" : "Automatic assignment")}</dd></div>
       <div><dt>Updated</dt><dd>{displayTime(rule.updatedAt)}</dd></div></dl></section>
   </aside>;
 }
 
-function RulesPage({ rules, loading, onCreate, selectedId, onSelect }) {
+function RulesPage({ rules, loading, onCreate, selectedId, onSelect, onEdit }) {
+  const [snapshot, setSnapshot] = useState(null);
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer;
+    async function poll() {
+      try {
+        const response = await fetch("/api/engine/snapshot", { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error("Engine unavailable");
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error("Invalid snapshot");
+        if (!controller.signal.aborted) { setSnapshot(data); setOffline(false); }
+      } catch {
+        if (!controller.signal.aborted) { setOffline(true); setSnapshot(null); }
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 5000);
+      }
+    }
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, []);
   const [query, setQuery] = useState("");
   const shown = useMemo(() => rules.filter(rule => rule.name.toLowerCase().includes(query.toLowerCase())), [rules, query]);
   const selected = rules.find(rule => rule.id === selectedId) || shown[0] || null;
   return <div className="page-content">
     <div className="page-heading"><div><p className="eyebrow">CONTROL</p><h1>Rules</h1><p className="subtitle">Create, inspect, and manage event matching rules.</p></div>
       <button className="primary-button" onClick={onCreate}><Plus size={16} aria-hidden="true" /> Create rule</button></div>
+    {offline && <p role="status">Engine snapshot unavailable.</p>}
+    {snapshot?.filter(item => item.state === "skipped").map(item => <p className="warning-banner" key={item.ruleId}>
+      Skipped rule {rules.find(rule => rule.id === item.ruleId)?.name || item.ruleId} · v{item.version} · {item.reason}
+    </p>)}
     <div className="rule-workspace">
       <section className="rule-list"><div className="list-heading"><h2>Rule library <span>{rules.length}</span></h2>
         <label className="search-box"><Search size={14} aria-hidden="true" /><input aria-label="Search rules" placeholder="Search rules" value={query} onChange={event => setQuery(event.target.value)} /></label></div>
@@ -115,7 +143,7 @@ function RulesPage({ rules, loading, onCreate, selectedId, onSelect }) {
         </button>)}
         {!loading && shown.length === 0 && <Empty title="No matching rules" text={query ? "Try another search." : "Create your first rule."} action={query ? undefined : onCreate} />}
       </section>
-      {selected && <RuleDetails rule={selected} />}
+      {selected && <RuleDetails onEdit={onEdit} rule={selected} status={snapshot?.find(item => item.ruleId === selected.id)} />}
     </div>
   </div>;
 }
@@ -147,6 +175,7 @@ function RunbooksPage({ items }) {
 export default function App() {
   const [active, setActive] = useState("overview");
   const [feeds, setFeeds] = useState(Object.fromEntries(FEEDS.map(name => [name, { items: [], loading: true, error: "" }])));
+  const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [selectedRule, setSelectedRule] = useState(null);
   const [notice, setNotice] = useState("");
@@ -159,10 +188,12 @@ export default function App() {
     setFeeds(Object.fromEntries(results.map(result => [result.name, { items: result.items, loading: false, error: result.error }])));
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
-  function navigate(page, id) { setCreating(false); setActive(page); if (id) setSelectedRule(id); }
-  function created() {
+  function navigate(page, id) { setEditing(null); setCreating(false); setActive(page); if (id) setSelectedRule(id); }
+  function created(result) {
+    if (result?.id) setSelectedRule(result.id);
+    setEditing(null);
     setCreating(false);
-    setNotice("Rule created and saved in Control.");
+    setNotice(editing ? "Rule changes saved." : "Rule created and saved in Control.");
     setActive("rules");
     void refresh();
   }
@@ -178,9 +209,10 @@ export default function App() {
       {Object.values(feeds).some(feed => feed.error) && <div className="warning-banner" role="alert">
         Control data could not be loaded. Verify that the backend is running, then <button className="text-button" onClick={refresh}>retry</button>.
       </div>}
-      {creating ? <RuleBuilder runbooks={feeds.runbooks.items} onCancel={() => setCreating(false)} onCreated={created} />
+      {editing ? <YamlRuleEditor rule={editing} onCancel={() => { setEditing(null); void refresh(); }} onSaved={created} />
+        : creating ? <RuleBuilder runbooks={feeds.runbooks.items} onCancel={() => setCreating(false)} onCreated={created} />
         : active === "overview" ? <Overview feeds={feeds} navigate={navigate} createRule={() => setCreating(true)} />
-          : active === "rules" ? <RulesPage rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />
+          : active === "rules" ? <RulesPage onEdit={setEditing} rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />
             : active === "runbooks" ? <RunbooksPage items={feeds.runbooks.items} />
               : <ActivityPage type={active} items={feeds[active]?.items || []} />}
       <footer className="app-footer">Goldman Alerting · Control service</footer>

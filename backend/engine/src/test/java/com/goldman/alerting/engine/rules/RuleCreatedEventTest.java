@@ -15,6 +15,18 @@ class RuleCreatedEventTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Test void validatesVersionTemplateAndOversizedIndexOnSnapshotLoad() throws Exception {
+        var node = (ObjectNode) objectMapper.readTree(message("048f06df-7fb4-4432-8743-87af3277489f", true, "x"));
+        var definition = (ObjectNode) node.get("definition");
+        definition.putObject("match").put("path", "payload[2147483648]").put("op", "exists").put("value", false);
+        var index = RuleIndex.compile(java.util.List.of(RuleDefinition.fromEvent(RuleCreated.fromTree(node))));
+        assertEquals(1, index.match(objectMapper.readTree("{\"payload\":[1]}")).size());
+        definition.put("v", 4294967297L);
+        assertThrows(IllegalArgumentException.class, () -> RuleDefinition.fromEvent(RuleCreated.fromTree(node)));
+        definition.put("v", 1).put("title", "{{payload.x | typo}}");
+        assertThrows(IllegalArgumentException.class, () -> RuleDefinition.fromEvent(RuleCreated.fromTree(node)));
+    }
+
     @Test
     void parsesControlEnvelopeAndV1Definition() throws Exception {
         RuleCreated event = parse(message("048f06df-7fb4-4432-8743-87af3277489f", true, "payment_failed"));

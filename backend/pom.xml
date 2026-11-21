@@ -11,6 +11,7 @@
 
     <modules>
         <module>contracts</module>
+        <module>rules</module>
         <module>control</module>
         <module>engine</module>
     </modules>

@@ -21,3 +21,7 @@ Use one subsection per rule with a short, descriptive heading.
 - **Exceptions and boundaries** — describe relevant edge cases and their exact outcomes.
 - **Reason** — record the brief requirement or team decision behind the rule.
 - **Verification** — link to the test or name the test case that checks it.
+
+## YAML rule editing
+
+The editor displays the saved source and keeps the operator's draft visible after validation or version conflicts. Cancel and reopen to load the latest saved revision. The browser scenario in `control-panel/e2e/yaml-rule.js` exercises these behaviors against Control and Engine.

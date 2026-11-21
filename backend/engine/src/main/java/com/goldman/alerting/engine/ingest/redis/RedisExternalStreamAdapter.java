@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.ReadOffset;
@@ -65,7 +66,8 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
                     bytes("MKSTREAM")
             ));
         } catch (RuntimeException exception) {
-            if (!String.valueOf(exception.getMessage()).contains("BUSYGROUP")) {
+            String cause = NestedExceptionUtils.getMostSpecificCause(exception).getMessage();
+            if (cause == null || !cause.startsWith("BUSYGROUP ")) {
                 throw exception;
             }
         }
@@ -102,8 +104,8 @@ public class RedisExternalStreamAdapter implements ApplicationRunner {
             if (rawPayload == null) {
                 throw new IllegalArgumentException("Missing payload field");
             }
-            String source = stringField(fields.get("source"), "redis-external");
-            ingestionService.accept(source, "redis", rawPayload.toString());
+            String source = stringField(fields.get("source"), externalStream);
+            ingestionService.accept(source, "redis-stream", rawPayload);
             streams.acknowledge(externalStream, consumerGroup, record.getId());
         } catch (RuntimeException exception) {
             if (rawPayload == null || exception instanceof InvalidJsonException

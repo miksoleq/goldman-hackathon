@@ -38,10 +38,12 @@ class LiveAlertSubscriptionIT {
     @Autowired DSLContext db;
     @Autowired org.springframework.boot.test.web.client.TestRestTemplate http;
 
-    @Test void catchesUpAndAcknowledgesReplayAfterCommitExactlyOnce() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"01ARZ3NDEKTSV4RRFFQ69G5FAV", "966f62b8-c687-4463-a682-7db02965098c"})
+    void catchesUpAndAcknowledgesReplayAfterCommitExactlyOnce(String eventId) throws Exception {
         String stream = "it:alerts:" + UUID.randomUUID();
         var ops = redis.<String, String>opsForStream();
-        var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+        var alert = new LiveAlert(1, "alert.created", UUID.randomUUID(), eventId, UUID.randomUUID(),
                 List.of(), List.of(UUID.randomUUID()), "high", "Timeout", "WF-42", 1,
                 Instant.parse("2026-11-21T12:00:00Z"), LiveAlert.UNASSIGNED_RUNBOOK, null);
         var payload = Map.of("alert", mapper.writeValueAsString(alert));
@@ -74,6 +76,7 @@ class LiveAlertSubscriptionIT {
             assertEquals(expected, mapper.readTree(stored.data()));
             var detail = http.getForObject("/api/alerts/" + alert.alertId(), com.fasterxml.jackson.databind.JsonNode.class);
             assertEquals(3, detail.required("count").asInt());
+            assertEquals(eventId, detail.required("eventId").asText());
             assertEquals(0, ops.pending(stream, group).getTotalPendingMessages());
             assertEquals(List.of(alert), observer.forAlert(alert.alertId()));
         } finally {
@@ -86,7 +89,7 @@ class LiveAlertSubscriptionIT {
         String stream = "it:alerts:" + UUID.randomUUID();
         var ops = redis.<String,String>opsForStream();
         var id = UUID.randomUUID();
-        var alert = new LiveAlert(1, "alert.created", id, UUID.randomUUID(), UUID.randomUUID(),
+        var alert = new LiveAlert(1, "alert.created", id, UUID.randomUUID().toString(), UUID.randomUUID(),
                 List.of(), List.of(), "high", "First match", "", 1, Instant.now(),
                 LiveAlert.UNASSIGNED_RUNBOOK, null);
         var consumer = new LiveAlertSubscription(redis, mapper, inbox, stream, Duration.ZERO);
