@@ -8,6 +8,8 @@ import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
 import com.goldman.alerting.control.db.tables.RuleUsers.RuleUsersPath;
 import com.goldman.alerting.control.db.tables.Rules.RulesPath;
+import com.goldman.alerting.control.db.tables.TeamMembers.TeamMembersPath;
+import com.goldman.alerting.control.db.tables.Teams.TeamsPath;
 import com.goldman.alerting.control.db.tables.records.UsersRecord;
 
 import java.time.OffsetDateTime;
@@ -16,6 +18,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+import org.jooq.Check;
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
@@ -34,6 +37,7 @@ import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
+import org.jooq.impl.Internal;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
 
@@ -93,6 +97,16 @@ public class Users extends TableImpl<UsersRecord> {
      * The column <code>public.users.created_at</code>.
      */
     public final TableField<UsersRecord, OffsetDateTime> CREATED_AT = createField(DSL.name("created_at"), SQLDataType.TIMESTAMPWITHTIMEZONE(6).nullable(false).defaultValue(DSL.field(DSL.raw("now()"), SQLDataType.TIMESTAMPWITHTIMEZONE)), this, "");
+
+    /**
+     * The column <code>public.users.password_hash</code>.
+     */
+    public final TableField<UsersRecord, String> PASSWORD_HASH = createField(DSL.name("password_hash"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column <code>public.users.role</code>.
+     */
+    public final TableField<UsersRecord, String> ROLE = createField(DSL.name("role"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field(DSL.raw("'MEMBER'::text"), SQLDataType.CLOB)), this, "");
 
     private Users(Name alias, Table<UsersRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
@@ -184,12 +198,44 @@ public class Users extends TableImpl<UsersRecord> {
         return _ruleUsers;
     }
 
+    private transient RulesPath _rules;
+
     /**
-     * Get the implicit many-to-many join path to the <code>public.rules</code>
-     * table
+     * Get the implicit to-many join path to the <code>public.rules</code> table
      */
     public RulesPath rules() {
-        return ruleUsers().rules();
+        if (_rules == null)
+            _rules = new RulesPath(this, null, Keys.RULES__RULES_CREATED_BY_USER_ID_FKEY.getInverseKey());
+
+        return _rules;
+    }
+
+    private transient TeamMembersPath _teamMembers;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.team_members</code> table
+     */
+    public TeamMembersPath teamMembers() {
+        if (_teamMembers == null)
+            _teamMembers = new TeamMembersPath(this, null, Keys.TEAM_MEMBERS__TEAM_MEMBERS_USER_ID_FKEY.getInverseKey());
+
+        return _teamMembers;
+    }
+
+    /**
+     * Get the implicit many-to-many join path to the <code>public.teams</code>
+     * table
+     */
+    public TeamsPath teams() {
+        return teamMembers().teams();
+    }
+
+    @Override
+    public List<Check<UsersRecord>> getChecks() {
+        return Arrays.asList(
+            Internal.createCheck(this, DSL.name("users_role_check"), "((role = ANY (ARRAY['TEAM_LEADER'::text, 'MEMBER'::text])))", true)
+        );
     }
 
     @Override

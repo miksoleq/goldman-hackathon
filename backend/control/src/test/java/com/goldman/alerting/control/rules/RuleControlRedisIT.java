@@ -90,11 +90,23 @@ class RuleControlRedisIT {
                 match: {path: payload, op: jsonSchema, value: {type: object, required: [kind], properties: {kind: {type: string}}}}
                 title: Payment failed
                 route: {teams: [%s]}
-                runbook: {name: "%s", format: text, content: "Check {{payload.kind}}"}
+                runbook:
+                  name: "%s"
+                  format: text
+                  content: "Check {{payload.kind}}"
+                  actions: [{type: check_workflow_status, params: {workflowId: "{{payload.id}}"}}]
                 """.formatted(ruleName, teamName, bookName);
+        var login = http.postForEntity("/api/auth/login", java.util.Map.of("username", "demo.member",
+                "password", "Runbook123!"), JsonNode.class);
         HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.COOKIE, login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0]);
         headers.setContentType(MediaType.parseMediaType("application/yaml"));
 
+        for (String invalid : java.util.List.of(yaml.replace("check_workflow_status", "unknown-type"),
+                yaml.replace("workflowId:", "wrongParameter:"))) {
+            assertThat(http.postForEntity("/api/rules", new HttpEntity<>(invalid, headers), JsonNode.class)
+                    .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        }
         ResponseEntity<JsonNode> response = http.postForEntity(
                 "/api/rules", new HttpEntity<>(yaml, headers), JsonNode.class);
 
@@ -108,6 +120,7 @@ class RuleControlRedisIT {
         String raw = redis.<String, String>opsForHash().get(CHANNEL + ":snapshot", ruleId);
         JsonNode event = new com.fasterxml.jackson.databind.ObjectMapper().readTree(raw);
         redis.opsForHash().delete(CHANNEL + ":snapshot", ruleId);
+        assertThat(event.at("/runbook/actions/0/params/workflowId").asText()).isEqualTo("{{payload.id}}");
         assertThat(event.at("/runbook/content").asText()).isEqualTo("Check {{payload.kind}}");
         assertThat(event.at("/runbook/id")).isEqualTo(event.path("runbookId"));
         var conflict = http.postForEntity("/api/rules",

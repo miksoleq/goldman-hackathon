@@ -19,11 +19,23 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         if (book != null) {
             var content = "url".equals(book.format()) ? (Function<JsonNode,String>) event -> book.content()
                     : template(book.content(), id, name);
-            render = event -> new Runbook(book.id(), book.name(), book.format(), content.apply(event));
+            var actions = book.actions().stream().map(action -> compileAction(action, id, name)).toList();
+            render = event -> new Runbook(book.id(), book.name(), book.format(), content.apply(event),
+                    actions.stream().map(action -> action.apply(event)).toList());
         }
         return new AlertSpec(teams, users, template(definition.path("title").asText(), id, name),
                 template(definition.path("body").asText(""), id, name),
                 template(definition.path("severity").asText("medium"), id, name).andThen(AlertSpec::level), render);
+    }
+
+    private static Function<JsonNode, Runbook.Action> compileAction(Runbook.Action action, String id, String name) {
+        Map<String, Function<JsonNode, String>> parameters = new LinkedHashMap<>();
+        action.params().forEach((key, value) -> parameters.put(key, template(value, id, name, true)));
+        return event -> {
+            Map<String, String> rendered = new LinkedHashMap<>();
+            parameters.forEach((key, value) -> rendered.put(key, value.apply(event)));
+            return new Runbook.Action(action.type(), rendered);
+        };
     }
 
     private static String level(String value) {
@@ -37,6 +49,10 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
     }
 
     private static Function<JsonNode,String> template(String text, String id, String name) {
+        return template(text, id, name, false);
+    }
+
+    private static Function<JsonNode,String> template(String text, String id, String name, boolean required) {
         List<Function<JsonNode,String>> parts = new ArrayList<>();
         int start = 0;
         for (int open; (open = text.indexOf("{{", start)) >= 0;) {
@@ -57,6 +73,7 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
                 List<JsonNode> nodes = new ArrayList<>();
                 if (path != null) path.forEachValue(event, nodes::add);
                 else nodes.add(TextNode.valueOf(ref.equals("rule.id") ? id : name));
+                if (required) nodes.removeIf(JsonNode::isNull);
                 String result = join(nodes, false);
                 for (int i = 1; i < expr.length; i++) {
                     String filter = expr[i].trim();
@@ -70,7 +87,7 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
                             result = result.substring(0, result.offsetByCodePoints(0, limit.intValueExact())) + "…";
                     }
                 }
-                return result;
+                return required && result.isBlank() ? null : result;
             });
             start = end + 2;
         }
@@ -78,7 +95,11 @@ public record AlertSpec(List<UUID> teams, List<UUID> users, Function<JsonNode,St
         if (parts.isEmpty()) return event -> tail;
         return event -> {
             var out = new StringBuilder();
-            for (var part : parts) out.append(part.apply(event));
+            for (var part : parts) {
+                String value = part.apply(event);
+                if (value == null) return "";
+                out.append(value);
+            }
             return out.append(tail).toString();
         };
     }

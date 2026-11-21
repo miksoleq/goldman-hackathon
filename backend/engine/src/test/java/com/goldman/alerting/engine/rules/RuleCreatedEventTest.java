@@ -61,6 +61,17 @@ class RuleCreatedEventTest {
         assertEquals("T", event.definition().path("title").asText());
     }
 
+    @Test void preservesRunbookActionTemplatesDuringSnapshotDeserialization() throws Exception {
+        ObjectNode node = (ObjectNode) objectMapper.readTree(message("rule", true, "timeout"));
+        var book = node.putObject("runbook").put("id", java.util.UUID.randomUUID().toString())
+                .put("name", "book").put("format", "text").put("content", "Check");
+        book.putArray("actions").addObject().put("type", "retry_workflow").putObject("params")
+                .put("workflowId", "{{payload.id}}");
+        assertEquals("{{payload.id}}", parse(node.toString()).runbook().actions().getFirst().params().get("workflowId"));
+        book.remove("actions");
+        assertTrue(parse(node.toString()).runbook().actions().isEmpty());
+    }
+
     private RuleCreated parse(String raw) throws com.fasterxml.jackson.core.JsonProcessingException {
         return objectMapper.readValue(raw, RuleCreated.class);
     }

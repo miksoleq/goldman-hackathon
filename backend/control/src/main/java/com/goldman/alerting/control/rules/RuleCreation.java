@@ -3,6 +3,10 @@ package com.goldman.alerting.control.rules;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goldman.alerting.contracts.RuleCreated;
 import com.goldman.alerting.contracts.Runbook;
+import com.goldman.alerting.control.actions.ActionCatalog;
+import com.fasterxml.jackson.core.type.TypeReference;
+import java.util.List;
+import com.goldman.alerting.control.auth.Accounts.UserRef;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.springframework.stereotype.Service;
@@ -15,19 +19,23 @@ import static com.goldman.alerting.control.db.Tables.*;
 
 @Service
 class RuleCreation {
-    record Created(UUID id, int version, long configVersion) {}
+    record Created(UUID id, int version, long configVersion, UserRef createdBy) {}
     static class NameConflict extends RuntimeException {}
 
     private final DSLContext db;
     private final ObjectMapper json;
 
-    RuleCreation(DSLContext db, ObjectMapper json) {
+    private final ActionCatalog catalog;
+
+    RuleCreation(DSLContext db, ObjectMapper json, ActionCatalog catalog) {
         this.db = db;
         this.json = json;
+        this.catalog = catalog;
     }
 
     @Transactional
-    public Created create(RuleDocument.Draft draft, String source, String actor) {
+    public Created create(RuleDocument.Draft draft, String source, UserRef owner) {
+        String actor = owner.username();
         var teams = draft.teams().stream().map(this::teamId).toList();
         var users = draft.users().stream().map(username -> db.select(USERS.ID).from(USERS)
                 .where(USERS.USERNAME.eq(username)).forKeyShare().fetchOptional(USERS.ID)
@@ -43,6 +51,7 @@ class RuleCreation {
                 .set(RULES.DEFINITION, definition)
                 .set(RULES.SOURCE_YAML, source)
                 .set(RULES.RUNBOOK_ID, runbook)
+                .set(RULES.CREATED_BY_USER_ID, owner.id())
                 .set(RULES.UPDATED_BY, actor)
                 .onConflict(RULES.NAME).doNothing()
                 .returningResult(RULES.ID).fetchOptional(RULES.ID)
@@ -79,7 +88,7 @@ class RuleCreation {
                 .set(RULE_CREATED_OUTBOX.CONFIG_VERSION, revision)
                 .set(RULE_CREATED_OUTBOX.RULE_ID, id)
                 .set(RULE_CREATED_OUTBOX.PAYLOAD, JSONB.valueOf(json.valueToTree(payload).toString())).execute();
-        return new Created(id, 1, revision);
+        return new Created(id, 1, revision, owner);
     }
 
     static class RunbookConflict extends RuntimeException {}
@@ -88,16 +97,25 @@ class RuleCreation {
         if (draft.runbook() == null) return null;
         var inline = draft.inlineBook();
         if (inline != null) {
+            inline.actions().forEach(catalog::resolve);
             var id = db.insertInto(RUNBOOKS).set(RUNBOOKS.NAME, draft.runbook())
                     .set(RUNBOOKS.FORMAT, inline.format()).set(RUNBOOKS.CONTENT, inline.content())
+                    .set(RUNBOOKS.ACTIONS, JSONB.valueOf(json.valueToTree(inline.actions()).toString()))
                     .set(RUNBOOKS.UPDATED_BY, actor).onConflict(RUNBOOKS.NAME).doNothing()
                     .returningResult(RUNBOOKS.ID).fetchOptional(RUNBOOKS.ID).orElseThrow(RunbookConflict::new);
-            return new Runbook(id, draft.runbook(), inline.format(), inline.content());
+            return new Runbook(id, draft.runbook(), inline.format(), inline.content(), inline.actions());
         }
-        return db.select(RUNBOOKS.ID, RUNBOOKS.NAME, RUNBOOKS.FORMAT, RUNBOOKS.CONTENT).from(RUNBOOKS)
+        var row = db.selectFrom(RUNBOOKS)
                 .where(RUNBOOKS.NAME.eq(draft.runbook()).and(RUNBOOKS.ENABLED.isTrue()))
-                .forShare().fetchOptional(org.jooq.Records.mapping(Runbook::new))
+                .forShare().fetchOptional()
                 .orElseThrow(() -> RuleDocument.invalid("Unknown active runbook: " + draft.runbook()));
+        try {
+            List<Runbook.Action> actions = json.readValue(row.getActions().data(), new TypeReference<>() {});
+            actions.forEach(catalog::resolve);
+            return new Runbook(row.getId(), row.getName(), row.getFormat(), row.getContent(), actions);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Invalid stored runbook", e);
+        }
     }
 
     private UUID teamId(String name) {

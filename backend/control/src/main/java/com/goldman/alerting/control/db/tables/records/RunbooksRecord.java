@@ -148,6 +148,20 @@ public class RunbooksRecord extends UpdatableRecordImpl<RunbooksRecord> {
         return (String) get(8);
     }
 
+    /**
+     * Setter for <code>public.runbooks.actions</code>.
+     */
+    public void setActions(JSONB value) {
+        set(9, value);
+    }
+
+    /**
+     * Getter for <code>public.runbooks.actions</code>.
+     */
+    public JSONB getActions() {
+        return (JSONB) get(9);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -171,7 +185,7 @@ public class RunbooksRecord extends UpdatableRecordImpl<RunbooksRecord> {
     /**
      * Create a detached, initialised RunbooksRecord
      */
-    public RunbooksRecord(UUID id, String name, String format, String content, JSONB matches, Boolean enabled, OffsetDateTime createdAt, OffsetDateTime updatedAt, String updatedBy) {
+    public RunbooksRecord(UUID id, String name, String format, String content, JSONB matches, Boolean enabled, OffsetDateTime createdAt, OffsetDateTime updatedAt, String updatedBy, JSONB actions) {
         super(Runbooks.RUNBOOKS);
 
         setId(id);
@@ -183,6 +197,7 @@ public class RunbooksRecord extends UpdatableRecordImpl<RunbooksRecord> {
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setUpdatedBy(updatedBy);
+        setActions(actions);
         resetChangedOnNotNull();
     }
 }

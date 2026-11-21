@@ -6,6 +6,7 @@ package com.goldman.alerting.control.db.tables;
 
 import com.goldman.alerting.control.db.Keys;
 import com.goldman.alerting.control.db.Public;
+import com.goldman.alerting.control.db.tables.ActionExecutions.ActionExecutionsPath;
 import com.goldman.alerting.control.db.tables.records.LiveAlertInboxRecord;
 
 import java.time.OffsetDateTime;
@@ -14,10 +15,14 @@ import java.util.UUID;
 
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.ForeignKey;
+import org.jooq.InverseForeignKey;
 import org.jooq.JSONB;
 import org.jooq.Name;
+import org.jooq.Path;
 import org.jooq.PlainSQL;
 import org.jooq.QueryPart;
+import org.jooq.Record;
 import org.jooq.SQL;
 import org.jooq.Schema;
 import org.jooq.Select;
@@ -96,6 +101,39 @@ public class LiveAlertInbox extends TableImpl<LiveAlertInboxRecord> {
         this(DSL.name("live_alert_inbox"), null);
     }
 
+    public <O extends Record> LiveAlertInbox(Table<O> path, ForeignKey<O, LiveAlertInboxRecord> childPath, InverseForeignKey<O, LiveAlertInboxRecord> parentPath) {
+        super(path, childPath, parentPath, LIVE_ALERT_INBOX);
+    }
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    public static class LiveAlertInboxPath extends LiveAlertInbox implements Path<LiveAlertInboxRecord> {
+
+        private static final long serialVersionUID = 1L;
+        public <O extends Record> LiveAlertInboxPath(Table<O> path, ForeignKey<O, LiveAlertInboxRecord> childPath, InverseForeignKey<O, LiveAlertInboxRecord> parentPath) {
+            super(path, childPath, parentPath);
+        }
+        private LiveAlertInboxPath(Name alias, Table<LiveAlertInboxRecord> aliased) {
+            super(alias, aliased);
+        }
+
+        @Override
+        public LiveAlertInboxPath as(String alias) {
+            return new LiveAlertInboxPath(DSL.name(alias), this);
+        }
+
+        @Override
+        public LiveAlertInboxPath as(Name alias) {
+            return new LiveAlertInboxPath(alias, this);
+        }
+
+        @Override
+        public LiveAlertInboxPath as(Table<?> alias) {
+            return new LiveAlertInboxPath(alias.getQualifiedName(), this);
+        }
+    }
+
     @Override
     public Schema getSchema() {
         return aliased() ? null : Public.PUBLIC;
@@ -104,6 +142,19 @@ public class LiveAlertInbox extends TableImpl<LiveAlertInboxRecord> {
     @Override
     public UniqueKey<LiveAlertInboxRecord> getPrimaryKey() {
         return Keys.LIVE_ALERT_INBOX_PKEY;
+    }
+
+    private transient ActionExecutionsPath _actionExecutions;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>public.action_executions</code> table
+     */
+    public ActionExecutionsPath actionExecutions() {
+        if (_actionExecutions == null)
+            _actionExecutions = new ActionExecutionsPath(this, null, Keys.ACTION_EXECUTIONS__ACTION_EXECUTIONS_LIVE_ALERT_ID_FKEY.getInverseKey());
+
+        return _actionExecutions;
     }
 
     @Override

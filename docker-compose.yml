@@ -35,6 +35,13 @@ services:
       postgres:
         condition: service_healthy
 
+  workflow-demo:
+    image: python:3.13-alpine
+    command: ["python", "/app/server.py"]
+    volumes:
+      - ./scripts/workflow-demo/server.py:/app/server.py:ro
+      - workflow_demo_data:/data
+
   frontend:
     build:
       context: ./frontend
@@ -128,3 +135,4 @@ volumes:
   redis_data:
   postgres_data:
   maven_cache:
+  workflow_demo_data:

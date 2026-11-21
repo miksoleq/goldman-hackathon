@@ -50,4 +50,19 @@ class RuleDocumentTest {
         assertThat(draft.definition().has("route")).isFalse();
         assertThat(draft.definition().at("/match/value").asText()).isEqualTo("TIMEOUT");
     }
+
+    @Test void appliesNamedRuleResourcesWithTheSameValidationAsPlainRules() throws Exception {
+        var parser = new RuleDocument();
+        var doc = """
+                kind: Rule
+                name: apply-demo
+                spec:
+                  title: Alert
+                  route: {teams: [demo]}
+                  match: {path: payload, op: exists}
+                """;
+        assertThat(parser.parse(doc).name()).isEqualTo("apply-demo");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> parser.parse(doc.replace("kind: Rule", "kind: Team")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

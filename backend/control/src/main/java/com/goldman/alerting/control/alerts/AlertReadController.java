@@ -4,10 +4,12 @@ import java.util.List;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.jooq.Records;
-import org.springframework.http.HttpStatus;
+import com.goldman.alerting.control.actions.RunbookActions;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.security.Principal;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+
 import static com.goldman.alerting.control.db.Tables.*;
 
 @RestController
@@ -15,7 +17,12 @@ import static com.goldman.alerting.control.db.Tables.*;
 class AlertReadController {
     record BookSummary(UUID id, String name, String format) {}
     private final DSLContext db;
-    AlertReadController(DSLContext db) { this.db = db; }
+    private final RunbookActions actions;
+
+    AlertReadController(DSLContext db, RunbookActions actions) {
+        this.db = db;
+        this.actions = actions;
+    }
 
     @GetMapping("/runbooks")
     List<BookSummary> runbooks() {
@@ -24,9 +31,15 @@ class AlertReadController {
     }
 
     @GetMapping(value = "/alerts/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    String alert(@PathVariable("id") UUID id) {
-        return db.select(LIVE_ALERT_INBOX.PAYLOAD).from(LIVE_ALERT_INBOX)
-                .where(LIVE_ALERT_INBOX.ALERT_ID.eq(id)).fetchOptional(LIVE_ALERT_INBOX.PAYLOAD)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)).data();
+    JsonNode alert(@PathVariable("id") UUID id) {
+        return actions.detail(id);
+    }
+
+    record ExecuteRequest(boolean confirmed) {}
+
+    @PostMapping("/alerts/{id}/actions/{stepNo}/execute")
+    RunbookActions.Step execute(@PathVariable("id") UUID id, @PathVariable("stepNo") int stepNo,
+                                @RequestBody ExecuteRequest request, Principal principal) {
+        return actions.execute(id, stepNo, request.confirmed(), principal == null ? "system" : principal.getName());
     }
 }

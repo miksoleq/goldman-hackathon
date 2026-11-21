@@ -10,6 +10,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.goldman.alerting.control.auth.Accounts.UserRef;
+import com.goldman.alerting.control.db.tables.records.RulesRecord;
+import static com.goldman.alerting.control.db.Tables.USERS;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/monitor")
+@RequestMapping("/api")
 public final class MonitorController {
 
     private static final int MAX_ITEMS = 100;
@@ -45,7 +51,7 @@ public final class MonitorController {
         this.eventStream = eventStream;
     }
 
-    @GetMapping(path = "/messages", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = "/monitor/messages", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<MonitorMessage> messages() {
         List<MapRecord<String, Object, Object>> records =
                 redis.opsForStream().reverseRange(eventStream, Range.unbounded(), Limit.limit().count(MAX_ITEMS));
@@ -58,25 +64,30 @@ public final class MonitorController {
                 .toList();
     }
 
-    @GetMapping(path = "/rules", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = {"/monitor/rules", "/rules"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public List<RuleView> rules() {
-        return database.selectFrom(RULES)
-                .orderBy(RULES.UPDATED_AT.desc(), RULES.NAME.asc())
-                .limit(MAX_ITEMS)
-                .fetch(record -> new RuleView(
-                        record.getId(),
-                        record.getName(),
-                        record.getEnabled(),
-                        record.getPriority(),
-                        record.getVersion(),
-                        record.getSourceYaml(),
-                        json(record.getDefinition()),
-                        record.getRunbookId(),
-                        record.getUpdatedAt()
-                ));
+        return ruleQuery().orderBy(RULES.UPDATED_AT.desc(), RULES.NAME.asc()).limit(MAX_ITEMS)
+                .fetch(row -> ruleView(row.value1(), row.value2()));
     }
 
-    @GetMapping(path = "/runbooks", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = {"/monitor/rules/{id}", "/rules/{id}"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    public RuleView rule(@PathVariable("id") UUID id) {
+        return ruleQuery().where(RULES.ID.eq(id)).fetchOptional(row -> ruleView(row.value1(), row.value2()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private org.jooq.SelectJoinStep<org.jooq.Record2<RulesRecord, String>> ruleQuery() {
+        return database.select(RULES, USERS.USERNAME).from(RULES)
+                .leftJoin(USERS).on(USERS.ID.eq(RULES.CREATED_BY_USER_ID));
+    }
+
+    private RuleView ruleView(RulesRecord rule, String username) {
+        return new RuleView(rule.getId(), rule.getName(), rule.getEnabled(), rule.getPriority(), rule.getVersion(),
+                rule.getSourceYaml(), json(rule.getDefinition()), rule.getRunbookId(), rule.getUpdatedAt(),
+                UserRef.owner(rule.getCreatedByUserId(), username));
+    }
+
+    @GetMapping(path = "/monitor/runbooks", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<RunbookView> runbooks() {
         return database.selectFrom(RUNBOOKS)
                 .orderBy(RUNBOOKS.UPDATED_AT.desc(), RUNBOOKS.NAME.asc())
@@ -92,7 +103,7 @@ public final class MonitorController {
                 ));
     }
 
-    @GetMapping(path = "/alerts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = "/monitor/alerts", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<JsonNode> alerts() {
         return database.select(LIVE_ALERT_INBOX.PAYLOAD)
                 .from(LIVE_ALERT_INBOX)
@@ -142,7 +153,8 @@ public final class MonitorController {
             String sourceYaml,
             JsonNode definition,
             UUID runbookId,
-            OffsetDateTime updatedAt
+            OffsetDateTime updatedAt,
+            UserRef createdBy
     ) { }
 
     public record RunbookView(

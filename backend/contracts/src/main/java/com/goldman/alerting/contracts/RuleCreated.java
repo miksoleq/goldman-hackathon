@@ -2,6 +2,8 @@ package com.goldman.alerting.contracts;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +12,8 @@ import java.util.UUID;
 public record RuleCreated(String type, String ruleId, int version, long configVersion,
                           String name, boolean enabled, int priority, List<UUID> teamIds,
                           List<UUID> userIds, UUID runbookId, JsonNode definition, Runbook runbook) {
+    private static final ObjectMapper SNAPSHOT_MAPPER = new ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     public static final String TYPE = "rule.created";
 
     public RuleCreated {
@@ -37,8 +41,7 @@ public record RuleCreated(String type, String ruleId, int version, long configVe
         String id = node.path("ruleId").textValue();
         JsonNode runbook = node.path("runbookId");
         JsonNode book = node.path("runbook");
-        Runbook snapshot = book.isObject() ? new Runbook(UUID.fromString(book.required("id").asText()),
-                book.required("name").asText(), book.required("format").asText(), book.required("content").asText()) : null;
+        Runbook snapshot = book.isObject() ? SNAPSHOT_MAPPER.convertValue(book, Runbook.class) : null;
         return new RuleCreated(node.path("type").textValue(), id, version.asInt(1),
                 node.path("configVersion").asLong(), node.path("name").asText(id),
                 node.get("enabled").booleanValue(), node.path("priority").asInt(100),

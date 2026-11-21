@@ -37,3 +37,11 @@ Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the 
 ### Regenerate the control jOOQ model
 
 Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. From `backend/`, run `mvn -pl contracts -am install` to make the shared JAR available to the generator. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.
+
+### Runbook action checks
+
+With Java 21, Maven 3.9, a dedicated PostgreSQL 17 database and Redis, run `mvn -pl control,engine -am clean verify` in `backend/`. Set the three datasource variables listed above and `REDIS_PORT` when using a dedicated Redis port. From the repository root run `python3 -m unittest discover -s scripts/workflow-demo` for provider eligibility and idempotency. The Compose workflow is exercised by `./scripts/test-alert-flow.sh`.
+
+### Account and membership checks
+
+Use the isolated PostgreSQL/Redis verification command above. AccountsTest and AccountPermissionsIT exercise login, logout, 401, 403, team membership and server-assigned ownership. The Compose smoke script signs in as the seeded demo member before creating its rules.

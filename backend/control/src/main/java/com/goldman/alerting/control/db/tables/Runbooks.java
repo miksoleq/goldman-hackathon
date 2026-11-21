@@ -104,6 +104,11 @@ public class Runbooks extends TableImpl<RunbooksRecord> {
      */
     public final TableField<RunbooksRecord, String> UPDATED_BY = createField(DSL.name("updated_by"), SQLDataType.CLOB, this, "");
 
+    /**
+     * The column <code>public.runbooks.actions</code>.
+     */
+    public final TableField<RunbooksRecord, JSONB> ACTIONS = createField(DSL.name("actions"), SQLDataType.JSONB.nullable(false).defaultValue(DSL.field(DSL.raw("'[]'::jsonb"), SQLDataType.JSONB)), this, "");
+
     private Runbooks(Name alias, Table<RunbooksRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

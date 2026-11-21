@@ -1,7 +1,19 @@
 server:
+  servlet:
+    session:
+      timeout: 8h
+      tracking-modes: cookie
+      cookie:
+        name: ALERT_SESSION
+        http-only: true
+        same-site: strict
   port: ${SERVER_PORT:8082}
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 3
   application:
     name: control
   jooq:

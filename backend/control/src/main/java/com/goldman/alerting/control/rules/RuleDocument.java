@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.goldman.alerting.contracts.Runbook.Action;
 import com.google.re2j.PatternSyntaxException;
 import com.networknt.schema.*;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ class RuleDocument {
     record Draft(String name, boolean enabled, int priority, List<String> teams, List<String> users,
                  String runbook, InlineBook inlineBook, ObjectNode definition) {}
 
-    record InlineBook(String format, String content) {}
+    record InlineBook(String format, String content, List<Action> actions) {}
 
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory())
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
@@ -42,6 +43,14 @@ class RuleDocument {
         }
         require(root instanceof ObjectNode, "Expected a rule object");
         ObjectNode def = ((ObjectNode) root).deepCopy();
+        if (def.has("kind")) {
+            require("Rule".equals(def.path("kind").asText()) && def.size() == 3 && def.path("spec").isObject(),
+                    "Expected kind, name and spec for a Rule resource");
+            String resourceName = name(def.get("name"), "name");
+            def = ((ObjectNode) def.get("spec")).deepCopy();
+            require(!def.has("name"), "Set the resource name outside spec");
+            def.put("name", resourceName);
+        }
         String name = name(def.remove("name"), "name");
         JsonNode enabled = def.remove("enabled");
         require(enabled == null || enabled.isBoolean(), "enabled must be boolean");
@@ -61,14 +70,16 @@ class RuleDocument {
             require(!Set.of("auto", "none").contains(book), "Reserved runbook name");
             String format = name(runbook.get("format"), "runbook.format");
             String content = name(runbook.get("content"), "runbook.content");
-            require(runbook.size() == 3 && Set.of("markdown", "text", "url").contains(format), "Invalid runbook");
+            runbook.fieldNames().forEachRemaining(key -> require(Set.of("name", "format", "content", "actions").contains(key),
+                    "Unknown runbook key: " + key));
+            require(Set.of("markdown", "text", "url").contains(format), "Invalid runbook");
             if (format.equals("url")) {
                 var uri = java.net.URI.create(content);
                 require(uri.getHost() != null && Set.of("http", "https").contains(uri.getScheme()), "Expected HTTP(S) URL");
             } else {
                 checkTemplate(content);
             }
-            inline = new InlineBook(format, content);
+            inline = new InlineBook(format, content, actions(runbook.get("actions")));
         } else {
             book = runbook == null ? "auto" : name(runbook, "runbook");
         }
@@ -87,6 +98,25 @@ class RuleDocument {
         for (String field : List.of("severity", "title", "body")) checkTemplate(def.get(field).textValue());
         return new Draft(name, enabled == null || enabled.booleanValue(), priority == null ? 100 : priority.intValue(),
                 teams, users, Set.of("auto","none").contains(book) ? null : book, inline, def);
+    }
+
+    private List<Action> actions(JsonNode steps) {
+        if (steps == null) return List.of();
+        require(steps.isArray(), "Expected runbook.actions array");
+        List<Action> actions = new ArrayList<>();
+        for (var step : steps) {
+            String type = name(step.get("type"), "action.type");
+            var params = step.path("params");
+            require(step.size() == 2 && params.isObject(), "Expected action type and params");
+            Map<String, String> values = new LinkedHashMap<>();
+            params.fields().forEachRemaining(entry -> {
+                String value = name(entry.getValue(), "action parameter " + entry.getKey());
+                checkTemplate(value);
+                values.put(entry.getKey(), value);
+            });
+            actions.add(new Action(type, values));
+        }
+        return List.copyOf(actions);
     }
 
     private static List<String> recipients(JsonNode route, String key) {

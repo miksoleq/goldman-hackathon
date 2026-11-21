@@ -4,6 +4,8 @@
 package com.goldman.alerting.control.db;
 
 
+import com.goldman.alerting.control.db.tables.ActionExecutions;
+import com.goldman.alerting.control.db.tables.ActionTypes;
 import com.goldman.alerting.control.db.tables.AuditLog;
 import com.goldman.alerting.control.db.tables.ConfigVersion;
 import com.goldman.alerting.control.db.tables.LiveAlertInbox;
@@ -13,6 +15,7 @@ import com.goldman.alerting.control.db.tables.RuleUsers;
 import com.goldman.alerting.control.db.tables.RuleVersions;
 import com.goldman.alerting.control.db.tables.Rules;
 import com.goldman.alerting.control.db.tables.Runbooks;
+import com.goldman.alerting.control.db.tables.TeamMembers;
 import com.goldman.alerting.control.db.tables.Teams;
 import com.goldman.alerting.control.db.tables.Users;
 
@@ -36,6 +39,16 @@ public class Public extends SchemaImpl {
      * The reference instance of <code>public</code>
      */
     public static final Public PUBLIC = new Public();
+
+    /**
+     * The table <code>public.action_executions</code>.
+     */
+    public final ActionExecutions ACTION_EXECUTIONS = ActionExecutions.ACTION_EXECUTIONS;
+
+    /**
+     * The table <code>public.action_types</code>.
+     */
+    public final ActionTypes ACTION_TYPES = ActionTypes.ACTION_TYPES;
 
     /**
      * The table <code>public.audit_log</code>.
@@ -83,6 +96,11 @@ public class Public extends SchemaImpl {
     public final Runbooks RUNBOOKS = Runbooks.RUNBOOKS;
 
     /**
+     * The table <code>public.team_members</code>.
+     */
+    public final TeamMembers TEAM_MEMBERS = TeamMembers.TEAM_MEMBERS;
+
+    /**
      * The table <code>public.teams</code>.
      */
     public final Teams TEAMS = Teams.TEAMS;
@@ -108,6 +126,8 @@ public class Public extends SchemaImpl {
     @Override
     public final List<Table<?>> getTables() {
         return Arrays.asList(
+            ActionExecutions.ACTION_EXECUTIONS,
+            ActionTypes.ACTION_TYPES,
             AuditLog.AUDIT_LOG,
             ConfigVersion.CONFIG_VERSION,
             LiveAlertInbox.LIVE_ALERT_INBOX,
@@ -117,6 +137,7 @@ public class Public extends SchemaImpl {
             RuleVersions.RULE_VERSIONS,
             Rules.RULES,
             Runbooks.RUNBOOKS,
+            TeamMembers.TEAM_MEMBERS,
             Teams.TEAMS,
             Users.USERS
         );

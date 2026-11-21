@@ -176,6 +176,20 @@ public class RulesRecord extends UpdatableRecordImpl<RulesRecord> {
         return (String) get(10);
     }
 
+    /**
+     * Setter for <code>public.rules.created_by_user_id</code>.
+     */
+    public void setCreatedByUserId(UUID value) {
+        set(11, value);
+    }
+
+    /**
+     * Getter for <code>public.rules.created_by_user_id</code>.
+     */
+    public UUID getCreatedByUserId() {
+        return (UUID) get(11);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -199,7 +213,7 @@ public class RulesRecord extends UpdatableRecordImpl<RulesRecord> {
     /**
      * Create a detached, initialised RulesRecord
      */
-    public RulesRecord(UUID id, String name, Boolean enabled, Integer priority, JSONB definition, String sourceYaml, UUID runbookId, Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt, String updatedBy) {
+    public RulesRecord(UUID id, String name, Boolean enabled, Integer priority, JSONB definition, String sourceYaml, UUID runbookId, Integer version, OffsetDateTime createdAt, OffsetDateTime updatedAt, String updatedBy, UUID createdByUserId) {
         super(Rules.RULES);
 
         setId(id);
@@ -213,6 +227,7 @@ public class RulesRecord extends UpdatableRecordImpl<RulesRecord> {
         setCreatedAt(createdAt);
         setUpdatedAt(updatedAt);
         setUpdatedBy(updatedBy);
+        setCreatedByUserId(createdByUserId);
         resetChangedOnNotNull();
     }
 }

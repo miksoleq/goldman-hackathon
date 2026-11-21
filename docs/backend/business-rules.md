@@ -73,3 +73,15 @@ Use one subsection per rule with a short, descriptive heading.
 ### Attached runbook instructions
 
 Control accepts an existing active runbook name or an inline object with name, format and content on rule creation. Inline creation and outbox insertion share the rule transaction. Engine renders text and Markdown using the matched event, and copies static HTTP(S) links. The alert inbox preserves the rendered snapshot. Unassigned rules (including auto in this release) produce alerts without instructions. Flyway V6 republishes previously attached instructions with a higher rule version.
+
+### Automatic runbook actions
+
+An inline or named runbook can carry ordered actions with a catalog type and named string parameters. Engine renders the parameters against the triggering event. On first receipt, Control stores the rendered steps and their integration settings in the same transaction as the alert. Missing parameters mark the step unavailable and skip the rest of the sequence. A redelivery preserves the original executions.
+
+New alerts execute configured steps in order after receipt commits. The three built-in actions and newly registered action types default to automatic execution. Explicit catalog approvals or manual types pause the sequence. Failed, uncertain or unavailable outcomes skip subsequent steps. Historical alert snapshots retain their original operator-driven behavior.
+
+Each worker claims a step in PostgreSQL, then executes under a row lock. An expired claim can be resumed after 30 seconds using the same execution UUID as the provider idempotency key. Results and audit records commit together. Escalation assigns the alert to the configured team and sets critical severity. RunbookActionsIT and the Compose smoke script verify automatic execution, ordering and persisted results.
+
+### Identity, memberships and rule owners
+
+Control validates demo credentials with bcrypt and binds the user UUID to an HTTP-only server session. Each protected request resolves the current database role. Both roles can create rules, and the rule, owner ID, version and outbox record commit together. Missing sessions return 401. A MEMBER can read the team directory. A TEAM_LEADER sees and manages the team identified by their unique lead membership. Ordinary memberships grant no management rights. The membership API preserves database-assigned lead memberships. Duplicate assignments and removals are idempotent. Rule list, detail and creation responses expose the owner's ID and username. Legacy rules display System. AccountsTest and AccountPermissionsIT cover the roles, session lifecycle and HTTP boundaries.
