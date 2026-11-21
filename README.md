@@ -10,11 +10,13 @@ Wymagany Docker z Docker Compose. Skopiuj lokalną konfigurację środowiska (w 
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Potem uruchom cały zestaw. Ingest HTTP wystawia port `8081`, `control` port `8082`, a PostgreSQL jest dostępny na `localhost:55432` (port hosta można zmienić przez `POSTGRES_PORT`).
+Potem uruchom cały zestaw. Frontend jest dostępny na porcie `8080`, ingest HTTP na `8081`, `control` na `8082`, a PostgreSQL na `localhost:55432`. Porty hosta można zmieniać przez `FRONTEND_PORT` i `POSTGRES_PORT`.
 
 ```powershell
 docker compose up --build
 ```
+
+Dashboard monitoringu jest dostępny pod [http://localhost:8080](http://localhost:8080). Pokazuje ostatnie wiadomości z Redis Streams, reguły i runbooki z bazy Control oraz ostatnie alerty zapisane w inboxie Control.
 
 Opcjonalnie uruchom też Kafka KRaft i listener Kafka:
 

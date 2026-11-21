@@ -42,6 +42,13 @@ A valid editor document creates the rule, user and team links, version 1, audit 
 
 Engine appends one JSON field `alert` per matched rule to stream `alerts.live`. Control reads the backlog, persists one inbox row per alert UUID, and acknowledges after commit. A duplicate delivery produces one stored row and one application event on successful synchronous processing. `LiveAlertSubscriptionIT` exercises backlog delivery and reclaim of a pending duplicate with PostgreSQL and Redis.
 
+### Event Monitor read API
+
+- **Expected behavior** — Control exposes GET `/api/monitor/messages`, `/rules`, `/runbooks`, and `/alerts`. Messages come from the configured ingest Redis stream; rules and runbooks come from PostgreSQL; alerts come from the persisted `live_alert_inbox`. Each endpoint returns at most the newest 100 records.
+- **Exceptions and boundaries** — These endpoints are read-only. Missing streams and empty tables return empty arrays. Control remains the only service that queries PostgreSQL.
+- **Reason** — The demo dashboard needs to inspect current Engine and Control state without bypassing Control's data ownership.
+- **Verification** — `MonitorControllerIT` covers the four endpoints with Redis and PostgreSQL.
+
 ## Rule template
 
 Use one subsection per rule with a short, descriptive heading.
