@@ -161,8 +161,8 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
       <p>Recipients: {[...draft.teams.split(","), ...draft.users.split(",")].map(item => item.trim()).filter(Boolean).join(", ") || "None"}</p>
       <p>Runbook: {draft.runbook}</p>
       <p>Match logic · <strong>{conditionSummary(draft.match)}</strong></p>
-      <p>Deduplication settings: {draft.windowSec} seconds{draft.dedupKeys.trim() ? ", fields " + draft.dedupKeys : ""}. Engine does not yet group alerts.</p>
-      {draft.stopProcessing && <p>Stop processing is configured. Engine does not yet stop rule evaluation.</p>}
+      <p>Group repeated matches for {draft.windowSec} seconds{draft.dedupKeys.trim() ? " using " + draft.dedupKeys : " using the default fingerprint"}.</p>
+      {draft.stopProcessing && <p>Later rules are skipped when this rule matches.</p>}
     </div>}
     {error && !(step === 1 && error === "Add at least one team or user recipient.") && <div className="error-banner" role="alert">{error}</div>}
     <div className="builder-actions">

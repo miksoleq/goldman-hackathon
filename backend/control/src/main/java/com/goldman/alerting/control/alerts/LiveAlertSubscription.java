@@ -80,13 +80,28 @@ class LiveAlertSubscription {
     private void receive(MapRecord<String, String, String> record) {
         try {
             String payload = record.getValue().get("alert");
-            LiveAlert alert = mapper.readValue(payload, LiveAlert.class);
-            if (alert.v() != 1 || !"alert.created".equals(alert.type()) || alert.alertId() == null) {
+            var envelope = mapper.readTree(payload);
+            if (!envelope.path("v").isIntegralNumber() || !envelope.path("v").canConvertToInt()
+                    || envelope.path("v").intValue() != 1) {
                 throw new IllegalArgumentException("Invalid alert envelope");
             }
-            inbox.receive(alert, payload);
+            var id = UUID.fromString(envelope.path("alertId").asText());
+            switch (envelope.path("type").asText()) {
+                case "alert.created" -> {
+                    LiveAlert alert = mapper.treeToValue(envelope, LiveAlert.class);
+                    inbox.receive(alert, payload);
+                    log.debug("Received alert ruleId={} eventId={} alertId={}", alert.ruleId(), alert.eventId(), id);
+                }
+                case "alert.counted" -> {
+                    var count = envelope.path("count");
+                    if (!count.isIntegralNumber() || !count.canConvertToInt() || count.intValue() < 2) {
+                        throw new IllegalArgumentException("Invalid alert count");
+                    }
+                    inbox.recordCount(id, count.intValue());
+                }
+                default -> throw new IllegalArgumentException("Invalid alert type");
+            }
             streams.acknowledge(stream, GROUP, record.getId());
-            log.debug("Received alert ruleId={} eventId={} alertId={}", alert.ruleId(), alert.eventId(), alert.alertId());
         } catch (Exception e) {
             log.warn("Alert stream entry {} remains pending ({})", record.getId(), e.getClass().getSimpleName());
         }

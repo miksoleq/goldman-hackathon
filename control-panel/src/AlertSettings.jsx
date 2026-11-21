@@ -123,7 +123,7 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
     </section>
     <details className="settings-section advanced-settings"><summary>Noise control &amp; advanced settings</summary>
       <div className="settings-heading"><h3>Deduplication</h3><p>Configure how duplicate events are identified within a time window.</p>
-        <p>These settings are saved with the rule. Alert grouping is not yet implemented in Engine.</p></div>
+        <p>The first match opens the window. Repeated matches increase the alert count until the window expires.</p></div>
       <div className="settings-grid settings-align">
         <label>Deduplication window (seconds)<input type="number" min="1" max="86400" step="1" value={draft.windowSec} onChange={event => update({ windowSec: event.target.value })} />
           <span className="field-help">Time window from 1 to 86,400 seconds.</span></label>
@@ -135,10 +135,9 @@ export default function AlertSettings({ draft, update, runbooks, showRecipientEr
         </div>
       </div>
       <label>Priority<input type="number" min="-2147483648" max="2147483647" step="1" value={draft.priority} onChange={event => update({ priority: event.target.value })} />
-        <span className="field-help">Stored with the rule. Engine does not currently order evaluations by priority.</span></label>
+        <span className="field-help">Lower numbers come first. Ties are sorted by rule name.</span></label>
       <label className="inline-check"><input type="checkbox" checked={draft.enabled} onChange={event => update({ enabled: event.target.checked })} /> Enable this rule after creation</label>
-      <label className="inline-check"><input type="checkbox" checked={draft.stopProcessing} onChange={event => update({ stopProcessing: event.target.checked })} /> Stop processing lower-priority rules after a match</label>
-      <p className="field-help">This setting is saved with the rule. Engine does not currently stop evaluation after a match.</p>
+      <label className="inline-check"><input type="checkbox" checked={draft.stopProcessing} onChange={event => update({ stopProcessing: event.target.checked })} /> Skip later rules when this rule matches</label>
     </details>
   </div>;
 }

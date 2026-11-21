@@ -20,6 +20,20 @@ class RuleIndexTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void ordersAllMatchesBeforeStoppingAtTheFirstMatchingStopRule() throws Exception {
+        var match = Condition.exists("payload");
+        var late = new RuleDefinition("1", match, null, "A", 20, false, Deduplication.DEFAULT);
+        var stop = new RuleDefinition("2", match, null, "B", 10, true, Deduplication.DEFAULT);
+        var early = new RuleDefinition("3", match, null, "A", 10, false, Deduplication.DEFAULT);
+        var skipped = new RuleDefinition("4", match, null, "C", 10, false, Deduplication.DEFAULT);
+        var miss = new RuleDefinition("5", Condition.exists("payload.missing"), null, "X", 1, true, Deduplication.DEFAULT);
+        var index = RuleIndex.compile(List.of(late, stop, skipped, early, miss));
+        var result = index.matchWithDiagnostics(json("{\"payload\":{}}"));
+        assertEquals(5, result.candidateCount());
+        assertEquals(List.of("3", "2"), ids(result.matchedRules()));
+    }
+
+    @Test
     void indexesEqualNumbersAcrossScalesForEqualityAndMembership() throws Exception {
         var index = RuleIndex.compile(List.of(
                 rule("equal", Condition.eq("payload.amount", json("10"))),

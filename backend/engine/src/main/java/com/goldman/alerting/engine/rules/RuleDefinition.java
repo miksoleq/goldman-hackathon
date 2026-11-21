@@ -8,7 +8,11 @@ import java.util.Objects;
 import java.util.Set;
 
 /** The matching-relevant projection of a validated {@code rules.definition} row. */
-public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
+public record RuleDefinition(String id, Condition condition, AlertSpec alert, String name, int priority,
+                             boolean stopProcessing, Deduplication dedup) {
+    public RuleDefinition(String id, Condition condition, AlertSpec alert) {
+        this(id, condition, alert, id, 100, false, Deduplication.DEFAULT);
+    }
     public RuleDefinition(String id, Condition condition) { this(id, condition, null); }
 
     private static final Set<String> V1_KEYS = Set.of(
@@ -32,7 +36,8 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
         var definition = event.definition();
         var rule = RuleDefinition.fromV1(id, definition);
         return new RuleDefinition(id, rule.condition(),
-                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook()));
+                AlertSpec.compile(id, event.name(), event.teamIds(), event.userIds(), definition, event.runbook()),
+                event.name(), event.priority(), rule.stopProcessing(), rule.dedup());
     }
 
     /**
@@ -63,6 +68,11 @@ public record RuleDefinition(String id, Condition condition, AlertSpec alert) {
         if (match == null) {
             throw new InvalidRuleDefinitionException("Rule definition requires match");
         }
-        return new RuleDefinition(id, ConditionParser.parse(match));
+        var stop = definition.path("stopProcessing");
+        if (!stop.isMissingNode() && !stop.isBoolean()) {
+            throw new InvalidRuleDefinitionException("stopProcessing must be a boolean");
+        }
+        return new RuleDefinition(id, ConditionParser.parse(match), null, id, 100,
+                stop.asBoolean(false), Deduplication.compile(definition.path("dedup")));
     }
 }

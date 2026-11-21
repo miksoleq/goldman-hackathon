@@ -14,6 +14,10 @@ Document a change in the same commit as the implementation and focused tests. Fo
 
 ### Rule matching uses immutable indexed snapshots
 
+Engine orders matches by ascending priority and then by name. It includes the first matching rule with `stopProcessing` and omits subsequent matches from both alerts and the event envelope.
+
+Each rule groups matching events by its v1 SHA-256 fingerprint in Redis. The first occurrence starts a fixed window (60 seconds by default) and publishes `alert.created`. Subsequent occurrences publish `alert.counted` with the original alert ID and cumulative count. Control updates the count in the original alert and preserves its instructions and recipients, including when stream entries arrive out of order. The next occurrence after expiry starts a new alert.
+
 Numeric equality and membership compare exact decimal values. For example, an indexed condition `{path: payload.amount, op: eq, value: 1}` matches the JSON numbers `1` and `1.0`. The JSON string `"1"` remains a separate value. `NumericRuleIngestIT` verifies decimal precision across Redis rule updates, HTTP ingest and alert publication.
 
 - **Expected behavior** - Engine parses the `match` subtree from rule-definition v1 into an immutable condition tree. It evaluates `all`, `any`, and `not`, plus leaf operators `exists`, `eq`, `ne`, `in`, `nin`, numeric comparisons, `contains`, `startsWith`, `endsWith`, and `regex`. `CompiledPath` supports `payload` and `meta` roots, dotted keys, quoted keys, array indexes, and `[*]`. Each rule uses one best equality bucket for `all`, one bucket per indexable `any` branch, or the always-check list; every candidate still runs its full predicate.

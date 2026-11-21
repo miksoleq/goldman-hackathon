@@ -72,6 +72,13 @@ public final class CompiledPath {
         return source;
     }
 
+    public boolean hasWildcard() {
+        for (byte kind : segmentKinds) {
+            if (kind == ARRAY_WILDCARD) return true;
+        }
+        return false;
+    }
+
     /** Returns the first resolved non-null value, or {@code null} if none exists. */
     public JsonNode get(JsonNode event) {
         return firstValue(event, 0);

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -19,6 +20,10 @@ import java.util.function.Predicate;
 
 /** Immutable inverted-index snapshot for schema-less JSON rule matching. */
 public final class RuleIndex {
+
+    private static final Comparator<Rule> PROCESSING_ORDER = Comparator
+            .comparingInt((Rule rule) -> rule.definition().priority())
+            .thenComparing(rule -> rule.definition().name());
 
     private static final Set<String> LOW_CARDINALITY_FIELDS = Set.of("env", "environment", "severity", "level");
     private static final String IGNORE_CASE_KEY_PREFIX = "\u0001ignore-case:";
@@ -153,6 +158,12 @@ public final class RuleIndex {
                 evaluationErrors.add(rule.id());
             }
         }
+        matches.sort(PROCESSING_ORDER);
+        for (int i = 0; i < matches.size(); i++) {
+            if (matches.get(i).definition().stopProcessing()) {
+                return new MatchResult(matches.subList(0, i + 1), candidateCount, evaluationErrors);
+            }
+        }
         return new MatchResult(matches, candidateCount, evaluationErrors);
     }
 
@@ -188,7 +199,7 @@ public final class RuleIndex {
     }
 
     private static Rule compileRule(int ordinal, RuleDefinition definition) {
-        return new Rule(ordinal, definition.id(), definition.condition(), compilePredicate(definition.condition()), definition.alert());
+        return new Rule(ordinal, definition, compilePredicate(definition.condition()));
     }
 
     private static Predicate<JsonNode> compilePredicate(Condition condition) {
