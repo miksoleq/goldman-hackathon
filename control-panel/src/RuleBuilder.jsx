@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { conditionSummary, createGroup, createLeaf, createSchema, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
+import { conditionSummary, createGroup, createLeaf, operatorsForType, OPERATORS, toRulePayload, validateDraft } from "./ruleModel.js";
 import { createRule } from "./api.js";
 
 const INITIAL_DRAFT = () => ({
@@ -7,58 +7,6 @@ const INITIAL_DRAFT = () => ({
   severity: "medium", title: "", body: "", runbook: "auto", dedupKeys: "", windowSec: 60,
   stopProcessing: false
 });
-
-function SchemaEditor({ schema, onChange, level = 0 }) {
-  function changeProperty(index, property) {
-    onChange({ ...schema, properties: schema.properties.map((item, i) => i === index ? property : item) });
-  }
-  return <div className="schema-editor" style={{ "--schema-level": level }}>
-    <label>Expected data type
-      <select value={schema.type} onChange={event => onChange(createSchema(event.target.value))}>
-        {["object", "array", "string", "number", "integer", "boolean", "null"].map(type => <option key={type}>{type}</option>)}
-      </select>
-    </label>
-    {schema.type === "object" && <>
-      <label className="inline-check"><input type="checkbox" checked={schema.additionalProperties}
-        onChange={event => onChange({ ...schema, additionalProperties: event.target.checked })} />
-        Allow additional properties</label>
-      <div className="schema-property-list">
-        {schema.properties.map((property, index) => <div className="schema-property" key={property.id}>
-          <label>Property name<input required value={property.name} placeholder="amount"
-            onChange={event => {
-              const previousName = property.name;
-              const nextName = event.target.value;
-              changeProperty(index, { ...property, name: nextName });
-              if (schema.required.includes(previousName)) {
-                onChange({ ...schema, required: schema.required.map(name => name === previousName ? nextName : name) });
-              }
-            }} /></label>
-          <label className="inline-check"><input type="checkbox" checked={schema.required.includes(property.name)}
-            onChange={event => {
-              const required = event.target.checked
-                ? [...new Set([...schema.required, property.name])]
-                : schema.required.filter(name => name !== property.name);
-              onChange({ ...schema, required });
-            }} /> Required</label>
-          <button className="text-button danger-text" type="button" onClick={() => onChange({
-            ...schema,
-            properties: schema.properties.filter((_, i) => i !== index),
-            required: schema.required.filter(name => name !== property.name)
-          })}>Remove property</button>
-          <SchemaEditor schema={property.schema} level={level + 1} onChange={nested => changeProperty(index, { ...property, schema: nested })} />
-        </div>)}
-      </div>
-      <button className="secondary-button" type="button" onClick={() => onChange({
-        ...schema,
-        properties: [...schema.properties, { id: crypto.randomUUID(), name: "", schema: createSchema("string") }]
-      })}>Add property</button>
-    </>}
-    {schema.type === "array" && <div className="schema-array">
-      <h4>Array item structure</h4>
-      <SchemaEditor schema={schema.items} level={level + 1} onChange={items => onChange({ ...schema, items })} />
-    </div>}
-  </div>;
-}
 
 function ConditionEditor({ node, onChange, onRemove, level = 0 }) {
   if (node.kind === "group") return <fieldset className="condition-group" style={{ "--nesting": level }}>
@@ -92,29 +40,45 @@ function ConditionEditor({ node, onChange, onRemove, level = 0 }) {
   const operator = OPERATORS.find(item => item[0] === node.op) || OPERATORS[1];
   const valueKind = operator[2];
   return <div className="condition-leaf">
+    <label>Condition kind<select value={node.op === "jsonSchema" ? "structure" : "field"} onChange={event => {
+      if (event.target.value === "structure") onChange({ ...node, scope: "payload", path: "", op: "jsonSchema", ignoreCase: false, example: node.example || "" });
+      else onChange({ ...node, scope: "payload", path: "", op: "eq", valueType: "string", value: "", ignoreCase: false });
+    }}><option value="field">Field condition</option><option value="structure">JSON structure</option></select></label>
     <div className="condition-fields">
+      {valueKind !== "schema" && <>
       <label>Look in
-        <select value={node.scope} onChange={event => onChange({ ...node, scope: event.target.value })}>
+        <select value={node.scope} onChange={event => onChange({ ...node, scope: event.target.value, path: "", valueType: "string", op: "eq", value: "", ignoreCase: false })}>
           <option value="payload">Event data</option>
           <option value="meta">Ingestion metadata</option>
         </select>
       </label>
       <label>Field name
         {node.scope === "meta"
-          ? <select required value={node.path} onChange={event => onChange({ ...node, path: event.target.value })}>
+          ? <select required value={node.path} onChange={event => {
+            const path = event.target.value;
+            const valueType = path === "receivedAt" ? "number" : "string";
+            const op = operatorsForType(valueType).some(([candidate]) => candidate === node.op) ? node.op : "eq";
+            onChange({ ...node, path, valueType, op, value: "", ignoreCase: false });
+          }}>
             <option value="">Select metadata field</option>
             {["source", "adapter", "eventId", "receivedAt", "contentType"].map(field => <option key={field}>{field}</option>)}
           </select>
-          : <input required value={node.path} placeholder="transaction.amount" onChange={event => onChange({ ...node, path: event.target.value })} />}
+          : <input required={node.op !== "jsonSchema"} value={node.path} placeholder="amount" onChange={event => onChange({ ...node, path: event.target.value })} />}
       </label>
+      {node.scope !== "meta" && <label>Field type<select value={node.valueType} onChange={event => {
+        const valueType = event.target.value;
+        const allowed = operatorsForType(valueType);
+        onChange({ ...node, valueType, op: allowed.some(([op]) => op === node.op) ? node.op : "exists", value: valueType === "boolean" ? "true" : "", ignoreCase: false });
+      }}>{["string", "number", "integer", "boolean", "null", "object", "array"].map(type => <option key={type}>{type}</option>)}</select></label>}
       <label>Condition
         <select value={node.op} onChange={event => {
           const next = OPERATORS.find(item => item[0] === event.target.value);
-          onChange({ ...node, op: event.target.value, value: "", ...(next[2] === "schema" ? { schema: createSchema() } : {}) });
+          onChange({ ...node, op: event.target.value, value: "", ignoreCase: false, ...(next[2] === "schema" ? { example: node.example || "" } : {}) });
         }}>
-          {OPERATORS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {operatorsForType(node.valueType).filter(([value]) => value !== "jsonSchema").map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
+      </>}
       {valueKind === "boolean" && <label>Field is present
         <select value={node.value || "true"} onChange={event => onChange({ ...node, value: event.target.value })}>
           <option value="true">Yes</option><option value="false">No</option>
@@ -127,22 +91,17 @@ function ConditionEditor({ node, onChange, onRemove, level = 0 }) {
       {valueKind === "text" && <label>{node.op === "in" || node.op === "nin" ? "Values, comma separated" : "Text value"}
         <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />
       </label>}
-      {valueKind === "typed" && <>
-        <label>Value type
-          <select value={node.valueType} onChange={event => onChange({ ...node, valueType: event.target.value })}>
-            {["string", "number", "integer", "boolean", "null"].map(type => <option key={type}>{type}</option>)}
-          </select>
-        </label>
+      {(valueKind === "typed" || valueKind === "list") && <>
         <label>{node.op === "in" || node.op === "nin" ? "Values, comma separated" : "Value"}
-        <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />
+        {node.valueType === "boolean" && valueKind !== "list" ? <select value={node.value || "true"} onChange={event => onChange({ ...node, value: event.target.value })}><option>true</option><option>false</option></select> : node.valueType === "null" ? <span>null</span> : <input required value={node.value} onChange={event => onChange({ ...node, value: event.target.value })} />}
       </label></>}
       {valueKind === "regex" && <label>RE2 pattern
         <input required maxLength="500" value={node.value} placeholder="^TRD-[0-9]+$"
           onChange={event => onChange({ ...node, value: event.target.value })} />
       </label>}
       {valueKind === "schema" && <div className="schema-builder">
-        <p>Describe the expected JSON structure at this field.</p>
-        <SchemaEditor schema={node.schema || createSchema()} onChange={schema => onChange({ ...node, schema })} />
+        <p>Paste an example of the entire event JSON. Object fields become required and additional fields are rejected. Array items must have the same structure.</p>
+        <label>Example JSON<textarea required rows="8" value={node.example || ""} placeholder={'{"amount": 100, "currency": "USD"}'} onChange={event => onChange({ ...node, example: event.target.value })} /></label>
       </div>}
     </div>
     <div className="leaf-footer">
@@ -166,12 +125,12 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
     event.preventDefault();
     setError("");
     if (step === 0) {
-      const problem = validateDraft(draft);
+      const problem = validateDraft(draft, "trigger");
       if (problem) { setError(problem); return; }
       setStep(1);
       return;
     }
-    if (step === 1) { setStep(2); return; }
+    if (step === 1) { const problem = validateDraft(draft); if (problem) { setError(problem); return; } setStep(2); return; }
     setSaving(true);
     try {
       await createRule(toRulePayload(draft));
@@ -183,7 +142,7 @@ export default function RuleBuilder({ runbooks, onCancel, onCreated }) {
     }
   }
 
-  return <form className="rule-builder" onSubmit={submit}>
+  return <form className="rule-builder" onSubmit={submit} noValidate>
     <div className="builder-top">
       <div><p className="eyebrow">RULE CREATION · STEP {step + 1} OF 3</p>
         <h2>{["Set the trigger", "Configure the alert", "Review and create"][step]}</h2></div>

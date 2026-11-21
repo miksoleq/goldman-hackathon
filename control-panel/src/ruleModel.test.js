@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conditionSummary, createGroup, createLeaf, createSchema, toCondition, toRulePayload, validateDraft } from "./ruleModel.js";
+import { conditionSummary, createGroup, createLeaf, operatorsForType, schemaFromExample, toCondition, toRulePayload, validateDraft } from "./ruleModel.js";
 
 function draft() {
   return {
@@ -34,25 +34,24 @@ test("serializes nested all, any, and not conditions with backend field paths", 
 });
 
 test("serializes recursive JSON object and array structures", () => {
-  const schema = createSchema("object");
-  schema.properties = [
-    { id: "1", name: "amount", schema: createSchema("number") },
-    { id: "2", name: "items", schema: { ...createSchema("array"), items: createSchema("integer") } }
-  ];
-  schema.required = ["amount"];
-  schema.additionalProperties = false;
-  const leaf = { ...createLeaf(), path: "transaction", op: "jsonSchema", schema };
+  const leaf = { ...createLeaf(), path: "transaction", op: "jsonSchema", example: '{"amount":42,"items":[1]}' };
 
   assert.deepEqual(toCondition(leaf), {
-    path: "payload.transaction",
+    path: "payload",
     op: "jsonSchema",
     value: {
       type: "object",
-      properties: { amount: { type: "number" }, items: { type: "array", items: { type: "integer" } } },
-      required: ["amount"],
+      properties: { amount: { type: "number" }, items: { type: "array", items: { type: "number" } } },
+      required: ["amount", "items"],
       additionalProperties: false
     }
   });
+});
+
+test("filters operators by field type and rejects mixed example arrays", () => {
+  assert.equal(operatorsForType("string").some(([op]) => op === "gt"), false);
+  assert.equal(operatorsForType("number").some(([op]) => op === "gt"), true);
+  assert.throws(() => schemaFromExample([1, "text"]), /same structure/);
 });
 
 test("builds creation payload with teams, users, runbook, and alert options", () => {
@@ -82,4 +81,16 @@ test("validates required recipients, condition values, and deduplication bounds"
   rule.windowSec = 60;
   rule.teams = "";
   assert.match(validateDraft(rule), /recipient/);
+});
+
+test("reports empty required inputs in English without browser validation", () => {
+  const rule = draft();
+  rule.name = " ";
+  assert.equal(validateDraft(rule, "trigger"), "Enter a rule name.");
+  rule.name = "Rule";
+  assert.equal(validateDraft(rule, "trigger"), "Enter a field name for each condition.");
+  rule.match.children[0].path = "amount";
+  rule.match.children[0].value = "10";
+  rule.priority = "";
+  assert.equal(validateDraft(rule), "Priority must be a whole number.");
 });

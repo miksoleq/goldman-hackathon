@@ -25,19 +25,40 @@ export function createGroup() {
   return { kind: "group", operator: "all", children: [createLeaf()] };
 }
 
-export function createSchema(type = "object") {
-  return {
-    type,
-    properties: [],
-    required: [],
-    additionalProperties: false,
-    ...(type === "array" ? { items: createSchema("string") } : {})
+export function operatorsForType(type) {
+  const allowed = {
+    string: ["exists","eq","ne","in","nin","contains","startsWith","endsWith","regex","jsonSchema"],
+    number: ["exists","eq","ne","in","nin","gt","gte","lt","lte","jsonSchema"],
+    integer: ["exists","eq","ne","in","nin","gt","gte","lt","lte","jsonSchema"],
+    boolean: ["exists","eq","ne","in","nin","jsonSchema"],
+    null: ["exists","eq","ne","jsonSchema"],
+    object: ["exists","jsonSchema"],
+    array: ["exists","jsonSchema"]
   };
+  return OPERATORS.filter(([op]) => (allowed[type] || allowed.string).includes(op));
+}
+
+export function schemaFromExample(value) {
+  if (value === null) return { type: "null" };
+  if (Array.isArray(value)) {
+    if (value.length === 0) return { type: "array" };
+    const schemas = value.map(schemaFromExample);
+    if (schemas.some(schema => JSON.stringify(schema) !== JSON.stringify(schemas[0]))) throw new Error("Array items must have the same structure.");
+    return { type: "array", items: schemas[0] };
+  }
+  if (typeof value === "object") return {
+    type: "object",
+    properties: Object.fromEntries(Object.entries(value).map(([key, item]) => [key, schemaFromExample(item)])),
+    required: Object.keys(value),
+    additionalProperties: false
+  };
+  return { type: typeof value };
 }
 
 function valueOf(condition) {
-  if (condition.op === "exists") return condition.value === "true";
+  if (condition.op === "exists") return condition.value !== "false";
   if (condition.op === "jsonSchema") return condition.schema;
+  if (["gt","gte","lt","lte"].includes(condition.op)) return Number(condition.value);
   if (condition.op === "in" || condition.op === "nin") {
     return condition.value.split(",").map(value => value.trim()).filter(Boolean)
       .map(value => castValue(value, condition.valueType));
@@ -48,22 +69,9 @@ function valueOf(condition) {
 function castValue(value, type) {
   if (type === "number") return Number(value);
   if (type === "integer") return Number.parseInt(value, 10);
-  if (type === "boolean") return value === "true";
-  if (type === "null") return null;
+  if (type === "boolean") return value !== "false";
   if (type === "null") return null;
   return value;
-}
-
-function serializeSchema(schema) {
-  const result = { type: schema.type };
-  if (schema.type === "object") {
-    result.properties = Object.fromEntries(schema.properties.filter(property => property.name.trim())
-      .map(property => [property.name.trim(), serializeSchema(property.schema)]));
-    if (schema.required.length) result.required = schema.required;
-    result.additionalProperties = schema.additionalProperties;
-  }
-  if (schema.type === "array") result.items = serializeSchema(schema.items);
-  return result;
 }
 
 export function toCondition(node) {
@@ -71,10 +79,10 @@ export function toCondition(node) {
   if (node.kind === "not") return { not: toCondition(node.child) };
   const path = node.path.trim();
   return {
-    path: node.scope + (path.startsWith("[") ? "" : ".") + path,
+    path: node.op === "jsonSchema" ? "payload" : node.scope + (path ? (path.startsWith("[") ? "" : ".") + path : ""),
     op: node.op,
-    value: node.op === "jsonSchema" ? serializeSchema(node.schema) : valueOf(node),
-    ...(node.ignoreCase ? { ignoreCase: true } : {})
+    value: node.op === "jsonSchema" ? schemaFromExample(JSON.parse(node.example)) : valueOf(node),
+    ...(node.ignoreCase && node.op !== "jsonSchema" ? { ignoreCase: true } : {})
   };
 }
 
@@ -88,7 +96,7 @@ export function conditionSummary(node) {
   const root = node.scope === "meta" ? "Ingestion metadata" : "Event data";
   const path = root + " · " + (node.path.trim() || "[field]");
   if (node.op === "exists") return path + (node.value === "false" ? " is missing" : " is present");
-  if (node.op === "jsonSchema") return path + " matches the configured JSON structure";
+  if (node.op === "jsonSchema") return "Event data matches the configured JSON structure";
   return path + " " + label.toLowerCase() + " “" + (node.value || "[value]") + "”";
 }
 
@@ -115,10 +123,10 @@ export function toRulePayload(draft) {
   return payload;
 }
 
-export function validateDraft(draft) {
+export function validateDraft(draft, step = "all") {
   if (!draft.name.trim()) return "Enter a rule name.";
-  if (!draft.teams.trim() && !draft.users.trim()) return "Add at least one team or user recipient.";
-  if (!Number.isInteger(Number(draft.priority))) return "Priority must be a whole number.";
+  if (step !== "trigger" && !draft.teams.trim() && !draft.users.trim()) return "Add at least one team or user recipient.";
+  if (String(draft.priority).trim() === "" || !Number.isInteger(Number(draft.priority))) return "Priority must be a whole number.";
   if (Number(draft.priority) < -2147483648 || Number(draft.priority) > 2147483647) return "Priority is outside the supported range.";
   if (draft.dedupKeys.split(",").filter(value => value.trim()).length > 10) return "Deduplication supports up to 10 fields.";
   if (!Number.isInteger(Number(draft.windowSec)) || Number(draft.windowSec) < 1 || Number(draft.windowSec) > 86400) {
@@ -141,35 +149,27 @@ function validateNode(node, depth = 1, exceedsCount = () => false) {
     return null;
   }
   if (node.kind === "not") return validateNode(node.child, depth + 1, exceedsCount);
-  if (!node.path.trim()) return "Enter a field name for each condition.";
+  if (!node.path.trim() && node.op !== "jsonSchema") return "Enter a field name for each condition.";
+  const path = node.scope + (node.path.trim() ? (node.path.trim().startsWith("[") ? "" : ".") + node.path.trim() : "");
+  if (!/^(payload|meta)(\.[^.\[\]'\s]+|\[([0-9]+|\*)\]|\['[^']+'\])*$/.test(path) || path.length > 300) return "Enter a valid field name.";
   if (node.op === "regex" && !node.value.trim()) return "Enter a regular expression.";
   if (node.op === "regex" && node.value.length > 500) return "Regular expressions can contain up to 500 characters.";
   if (node.op === "in" || node.op === "nin") {
     const values = node.value.split(",").filter(value => value.trim());
     if (!values.length) return "Enter at least one list value.";
     if (values.length > 1000) return "Lists can contain up to 1,000 values.";
-  } else if (node.op !== "exists" && node.op !== "jsonSchema" && !node.value.trim()) {
+  } else if (node.op !== "exists" && node.op !== "jsonSchema" && node.valueType !== "null" && node.valueType !== "boolean" && !node.value.trim()) {
     return "Enter a comparison value for each condition.";
   }
-  if (node.op === "jsonSchema") return validateSchema(node.schema, depth);
-  if (["number", "integer"].includes(node.valueType) && node.op !== "exists") {
+  if (node.op === "jsonSchema") {
+    try { schemaFromExample(JSON.parse(node.example)); } catch (error) { return "Enter valid example JSON. " + (error instanceof SyntaxError ? "" : error.message); }
+    return null;
+  }
+  if ((["number", "integer"].includes(node.valueType) || ["gt","gte","lt","lte"].includes(node.op)) && node.op !== "exists") {
     const values = node.op === "in" || node.op === "nin" ? node.value.split(",") : [node.value];
-    if (values.some(value => value.trim() === "" || !Number.isFinite(Number(value)))) return "Enter valid numeric values.";
+    if (values.some(value => value.trim() === "" || !Number.isFinite(Number(value)) || (node.valueType === "integer" && !Number.isInteger(Number(value))))) return "Enter valid numeric values.";
   }
   return null;
 }
 
-function validateSchema(schema, depth) {
-  if (depth > 10) return "JSON structure cannot exceed 10 nested levels.";
-  if (schema.type === "object") {
-    const names = schema.properties.map(property => property.name.trim());
-    if (names.some(name => !name)) return "Give every JSON property a name.";
-    if (new Set(names).size !== names.length) return "JSON property names must be unique.";
-    for (const property of schema.properties) {
-      const error = validateSchema(property.schema, depth + 1);
-      if (error) return error;
-    }
-  }
-  if (schema.type === "array") return validateSchema(schema.items, depth + 1);
-  return null;
-}
+\n
