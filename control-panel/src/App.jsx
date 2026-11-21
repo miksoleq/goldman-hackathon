@@ -223,7 +223,6 @@ export default function App() {
           : active === "rules" ? <RulesPage onEdit={setEditing} rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />
             : active === "runbooks" ? <RunbooksPage items={feeds.runbooks.items} />
               : <ActivityPage type={active} items={feeds[active]?.items || []} />}
-      <footer className="app-footer">Goldman Alerting · Control service</footer>
     </main>
   </div>;
 }
