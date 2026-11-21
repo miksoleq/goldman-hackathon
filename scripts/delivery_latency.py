@@ -3,6 +3,8 @@ import csv
 import json
 import math
 import os
+import subprocess
+from contextlib import contextmanager
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -23,9 +25,41 @@ def percentile(values, probability):
     return sorted(values)[math.ceil(len(values) * probability) - 1]
 
 
-def measure(name, total, interval, tag, engine, probes):
+@contextmanager
+def ui_observer():
+    proc = subprocess.Popen(["node", "control-panel/e2e-suite/clients/latency-ui.mjs"],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        if proc.stdout.readline().strip() != "ready":
+            raise RuntimeError("Browser observer failed to open both Alerts views")
+
+        def snapshot(command="observe"):
+            proc.stdin.write(command + "\n")
+            proc.stdin.flush()
+            return json.loads(proc.stdout.readline())
+
+        yield snapshot
+    finally:
+        proc.stdin.close()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
+
+def mark_observed(seen, titles, submitted, observed):
+    for title in titles:
+        if title in submitted:
+            seen.setdefault(title, observed)
+
+
+def measure(name, total, interval, tag, engine, probes, browser=None):
     tokens = [f"{tag}-{name}-{i:03}" for i in range(total)]
     seen = {channel: {} for channel in probes}
+    if browser:
+        seen.update(panel={}, monitor={})
+
     def send(token):
         client = build_opener()
         start = time.perf_counter()
@@ -42,9 +76,12 @@ def measure(name, total, interval, tag, engine, probes):
             for channel, probe in probes.items():
                 found = probe()
                 observed = time.perf_counter()
-                for token in found:
-                    if token in futures:
-                        seen[channel].setdefault(token, observed)
+                mark_observed(seen[channel], found, futures, observed)
+            if browser:
+                snapshot = browser()
+                observed = time.perf_counter()
+                for channel, titles in snapshot.items():
+                    mark_observed(seen[channel], titles, futures, observed)
             if all(len(items) == total for items in seen.values()):
                 break
             time.sleep(0.025)
@@ -91,15 +128,28 @@ def main():
     warmup = measure("warmup", 1, 0, tag, engine, probes)
     if any(row[-1] is None for row in warmup):
         raise RuntimeError("Warm-up delivery failed")
-    records = []
-    for name, interval in (("steady", 0.5), ("burst", 0)):
-        rows = measure(name, 30, interval, tag, engine, probes)
-        records.extend(rows)
-        for channel in probes:
-            latency = [ms for _, _, _, c, ms in rows if c == channel and ms is not None]
-            summary = (f"p50={percentile(latency, .5):.0f} p95={percentile(latency, .95):.0f} "
-                       f"max={max(latency):.0f} ms") if latency else "no receipts"
-            print(f"{name:7} {channel:6} {len(latency)}/30  {summary}", flush=True)
+    with ui_observer() as browser:
+        records = []
+        for name, interval in (("steady", 0.5), ("burst", 0)):
+            rows = measure(name, 30, interval, tag, engine, probes, browser)
+            records.extend(rows)
+            for channel in (*probes, "panel", "monitor"):
+                latency = [ms for _, _, _, c, ms in rows if c == channel and ms is not None]
+                summary = (f"p50={percentile(latency, .5):.0f} p95={percentile(latency, .95):.0f} "
+                           f"max={max(latency):.0f} ms") if latency else "no receipts"
+                print(f"{name:7} {channel:6} {len(latency)}/30  {summary}", flush=True)
+        # Validate missing automatic receipts independently, after both timed profiles.
+        missing = {(channel, token) for _, token, _, channel, ms in records
+                   if channel in ("monitor", "panel") and ms is None}
+        if missing:
+            browser("refresh")
+            remaining = missing.copy()
+            deadline = time.perf_counter() + 5
+            while remaining and time.perf_counter() < deadline:
+                rendered = browser()
+                remaining = {(c, t) for c, t in remaining if t not in rendered[c]}
+                time.sleep(.05)
+            print(f"Manual refresh diagnostic: {len(missing) - len(remaining)}/{len(missing)} missing UI receipts visible")
     path = Path("e2e-results") / (tag + ".csv")
     path.parent.mkdir(exist_ok=True)
     with path.open("w", newline="") as out:

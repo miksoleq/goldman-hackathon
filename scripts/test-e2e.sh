@@ -5,8 +5,7 @@ cd "$(dirname "$0")/.."
 : "${E2E_PASSWORD:?Set E2E_PASSWORD to the demo password}"
 export POSTGRES_PASSWORD="${E2E_POSTGRES_PASSWORD:-e2e-local-only}"
 case "${1:-}" in
-  "") services=(frontend control-panel engine sms-mock mailpit) ;;
-  --latency) services=(control engine sms-mock mailpit) ;;
+  ""|--latency) services=(frontend control-panel engine sms-mock mailpit) ;;
   *) echo "Usage: $0 [--latency]" >&2; exit 2 ;;
 esac
 read -r E2E_CONTROL_PORT E2E_ENGINE_PORT E2E_MONITOR_PORT E2E_PANEL_PORT MAILPIT_PORT SMS_MOCK_PORT < <(
@@ -31,7 +30,7 @@ cleanup() { "${compose[@]}" down --volumes --remove-orphans --rmi local >/dev/nu
 trap cleanup EXIT
 "${compose[@]}" up -d --build "${services[@]}"
 urls=("$CONTROL_URL/actuator/health" "$ENGINE_URL/actuator/health" "$SMS_MOCK_URL/messages" "$MAILPIT_URL/api/v1/messages")
-if [[ "${1:-}" != "--latency" ]]; then urls+=("$MONITOR_URL" "$PANEL_URL"); fi
+urls+=("$MONITOR_URL" "$PANEL_URL")
 for url in "${urls[@]}"; do
   ready=false
   for ((attempt=0; attempt<60; attempt++)); do
