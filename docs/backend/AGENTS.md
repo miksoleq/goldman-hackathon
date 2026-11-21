@@ -37,3 +37,7 @@ Run `mvn -pl control test` from `backend/` for the unit suite (JDK 25). For the 
 ### Regenerate the control jOOQ model
 
 Control uses the jOOQ DSL and the generated tables in `com.goldman.alerting.control.db`. From `backend/`, run `mvn -pl contracts -am install` to make the shared JAR available to the generator. After a Flyway schema change, apply the migrations to a disposable PostgreSQL database. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` to that database, then run `mvn -pl control -Pjooq-codegen generate-sources` from `backend/`. Include the regenerated Java files with the migration. Ordinary builds use those files directly.
+
+### Automatic runbook selection
+
+Run `mvn -B -pl contracts,rules,control,engine clean verify` from `backend/` with JDK 21 and disposable PostgreSQL and Redis instances. For the live acceptance check, start the two packaged services with `RULES_REDIS_ENABLED=true` on that isolated stack. From the repository root, run `python3 scripts/test-auto-runbook.py --engine "$ENGINE_URL" --control "$CONTROL_URL" --postgres-container "$TEST_POSTGRES_CONTAINER"`. The script verifies catalog updates, disabling and the stored instruction through the alert detail API. It leaves synthetic fixtures on the supplied test stack.
