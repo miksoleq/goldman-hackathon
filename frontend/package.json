@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test src/api.test.js && vitest run src/RunbookActions.test.jsx"
+    "test": "node --test src/api.test.js && vitest run src/RunbookActions.test.jsx src/LiveAlerts.test.jsx"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

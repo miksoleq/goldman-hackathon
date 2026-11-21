@@ -6,6 +6,7 @@ Zestaw uruchamia Control, Engine, Redis, PostgreSQL, runner i oba interfejsy w o
 
 | Scenariusz | Działanie i oczekiwany wynik |
 | --- | --- |
+| Powiadomienie na żywo | Po dopasowaniu reguły oba otwarte interfejsy pokazują adresatowi komunikat o nowym alercie. Operator może go zamknąć. Lista Alerts aktualizuje się bez naciskania Refresh. |
 | Reguła i alert | Zalogowany użytkownik tworzy regułę. Test wysyła zdarzenie do momentu aktywacji reguły w Engine, a następnie sprawdza alert widoczny w monitorze. |
 | Python i zatwierdzenie | Health check zwraca UP. Skrypt oczekuje na zatwierdzenie, żądanie bez potwierdzenia zwraca 409, a kliknięcie Confirm zapisuje wynik i nazwę operatora. Wynik pozostaje widoczny po odświeżeniu. |
 | Deduplikacja | Ponowne zdarzenie z tym samym kluczem zwiększa licznik i zachowuje te same kroki i ich wynik. |

@@ -19,7 +19,10 @@ export async function pythonApproval(page, settings) {
 
   const monitorPage = await page.context().newPage();
   const monitor = new Monitor(monitorPage, settings.monitor);
+  const baseline = monitorPage.waitForResponse(response =>
+    response.url().endsWith("/api/me/notifications") && response.ok());
   await monitor.open();
+  await baseline;
   let alert;
   await waitFor(async () => {
     await alerts.ingest(rule.tag);
@@ -27,8 +30,10 @@ export async function pythonApproval(page, settings) {
     alert = feed.find(item => item.ruleId === rule.id);
     return !!alert;
   });
-  await monitorPage.reload();
-  await monitor.open();
+  for (const view of [page, monitorPage]) {
+    await view.getByRole("status", { name: "New alert" }).getByText(rule.tag, { exact: true }).waitFor();
+    await view.getByRole("button", { name: "Dismiss alert notification" }).click();
+  }
   await monitor.openAlert(rule.tag);
   let detail;
   await waitFor(async () => (await alerts.detail(alert.alertId)).actions?.[1]?.available === true);
