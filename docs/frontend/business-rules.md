@@ -32,3 +32,7 @@ In Control Panel, signed-in members and leaders create and edit shared runbooks 
 ### Create a runbook while creating a rule
 
 The Response section can attach an existing runbook or create one in the same rule submission. A Python Script step starts with human approval enabled. Choosing automatic execution allows the worker to run that step when its predecessors succeed. Both alert views show the persisted result and allow an operator to confirm a pending step. The inline-python browser scenario covers both execution modes and output chaining.
+
+### Live alert delivery in open browser views
+
+Control Panel and Event Monitor subscribe to the monitor SSE feed so their alert lists update as snapshots arrive. Both also subscribe to the signed-in recipient’s notification feed. A new UI delivery raises a dismissible notice even outside the Alerts view. The initial personal inbox is a baseline and does not raise historical notices. The browser reconciles the inbox again when the stream reconnects.

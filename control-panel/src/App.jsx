@@ -1,3 +1,4 @@
+import { AlertNotification, useLiveAlerts } from "../../web-shared/LiveAlerts.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, BookOpen, Grid2X2, Inbox, ListFilter, Plus, RefreshCw, Search, ShieldCheck, BellRing, Users } from "lucide-react";
 import { AccountMenu, LoginForm, useAuth } from "../../web-shared/Auth.jsx";
@@ -239,14 +240,17 @@ export default function App() {
   }
 
   const rules = feeds.rules.items;
+  const liveAlerts = useLiveAlerts();
+  const currentFeeds = liveAlerts === null ? feeds : { ...feeds, alerts: { items: liveAlerts, loading: false, error: "" } };
   return <div className="app-shell">
+    <AlertNotification />
     <Sidebar active={active} onNavigate={navigate} ruleCount={rules.length} />
     <main className="main-area">
       <header className="topbar"><div className="breadcrumb">Alerting <span>/</span> {creating ? "Create rule" : active[0].toUpperCase() + active.slice(1)}</div>
       <div className="topbar-right"><AccountMenu /><span className="environment"><i /> Demo environment</span><button className="icon-button" aria-label="Refresh data" onClick={refresh}><RefreshCw size={15} aria-hidden="true" /></button></div>
       </header>
       {notice && <div className="success-banner" role="status">{notice}<button aria-label="Dismiss" onClick={() => setNotice("")}>×</button></div>}
-      {Object.values(feeds).some(feed => feed.error) && <div className="warning-banner" role="alert">
+      {Object.values(currentFeeds).some(feed => feed.error) && <div className="warning-banner" role="alert">
         Control data could not be loaded. Verify that the backend is running, then <button className="text-button" onClick={refresh}>retry</button>.
       </div>}
       {(creating || bookEditor || active === "teams") && !ready ? <p className="page-content">Checking session…</p>
@@ -255,10 +259,10 @@ export default function App() {
         : bookEditor ? <RunbookEditor key={bookEditor} id={bookEditor === "new" ? null : bookEditor} onCancel={() => setBookEditor(null)}
           onSaved={book => { setNotice("Saved runbook “" + book.name + "”."); setBookEditor(null); void refresh(); }} />
         : active === "teams" ? <TeamsPage key={user.id + user.role} />
-        : active === "overview" ? <Overview feeds={feeds} navigate={navigate} createRule={() => setCreating(true)} />
+        : active === "overview" ? <Overview feeds={currentFeeds} navigate={navigate} createRule={() => setCreating(true)} />
           : active === "rules" ? <RulesPage rules={rules} loading={feeds.rules.loading} onCreate={() => setCreating(true)} selectedId={selectedRule} onSelect={setSelectedRule} />
             : active === "runbooks" ? <RunbooksPage items={feeds.runbooks.items} open={setBookEditor} />
-              : <ActivityPage onRefresh={refresh} type={active} items={feeds[active]?.items || []} rules={rules} />}
+              : <ActivityPage onRefresh={refresh} type={active} items={currentFeeds[active]?.items || []} rules={rules} />}
     </main>
   </div>;
 }

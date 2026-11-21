@@ -1,3 +1,4 @@
+import { AlertNotification, useLiveAlerts } from "../../web-shared/LiveAlerts.jsx";
 import { AccountMenu } from "../../web-shared/Auth.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RunbookActions from "../../web-shared/RunbookActions.jsx";
@@ -276,7 +277,8 @@ function App() {
     document.getElementById("tab-" + SECTIONS[nextIndex].id)?.focus();
   }
 
-  const feed = feeds[activeTab];
+  const liveAlerts = useLiveAlerts();
+  const feed = activeTab === "alerts" && liveAlerts !== null ? { items: liveAlerts, error: null } : feeds[activeTab];
   const sectionItems = feed.items || [];
   const rules = feeds.rules.items || [];
   const items = activeTab === "alerts" ? sectionItems.filter(item => {
@@ -310,6 +312,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <AlertNotification />
       <header className="app-header">
         <h1>Event Monitor</h1>
         <div className="header-actions">

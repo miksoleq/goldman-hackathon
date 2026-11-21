@@ -6,6 +6,7 @@ Zestaw uruchamia Control, Engine, Redis, PostgreSQL, runner i oba interfejsy w o
 
 | Scenariusz | Działanie i oczekiwany wynik |
 | --- | --- |
+| Powiadomienie na żywo | Po dopasowaniu reguły oba otwarte interfejsy pokazują adresatowi komunikat o nowym alercie. Operator może go zamknąć. Lista Alerts aktualizuje się bez naciskania Refresh. |
 | Reguła i alert | Zalogowany użytkownik tworzy regułę. Test wysyła zdarzenie do momentu aktywacji reguły w Engine, a następnie sprawdza alert widoczny w monitorze. |
 | Python i zatwierdzenie | Health check zwraca UP. Skrypt oczekuje na zatwierdzenie, żądanie bez potwierdzenia zwraca 409, a kliknięcie Confirm zapisuje wynik i nazwę operatora. Wynik pozostaje widoczny po odświeżeniu. |
 | Deduplikacja | Ponowne zdarzenie z tym samym kluczem zwiększa licznik i zachowuje te same kroki i ich wynik. |
@@ -39,3 +40,19 @@ E2E_USERNAME=demo.member E2E_PASSWORD='<hasło konta demo>' scripts/test-e2e.sh
 ```
 
 Jeśli Chrome jest w niestandardowej lokalizacji, ustaw CHROME_BIN. Testy uruchamiają się sekwencyjnie. Pierwsza budowa obrazów może trwać kilka minut.
+
+## Opóźnienie dostarczenia
+
+```sh
+E2E_USERNAME=demo.member E2E_PASSWORD='<hasło konta demo>' scripts/test-e2e.sh --latency
+```
+
+Test uruchamia osobny stos Compose. Po aktywacji reguły i jednym zdarzeniu rozgrzewkowym porównuje dwa profile: 30 zdarzeń z docelowym tempem 2/s i serię 30 z maksymalnie ośmioma równoległymi żądaniami HTTP. Każde zdarzenie ma osobny klucz deduplikacji. W tym stosie limit liczby dostaw jest podniesiony do 200 na kanał i odbiorcę, aby zmierzyć kolejkę także powyżej domyślnego progu 10.
+
+Ten sam proces mierzy zegarem monotonicznym czas od rozpoczęcia żądania ingest do pierwszego odczytu identyfikatora wiadomości ze skrzynki zalogowanego odbiorcy, Mailpit albo lokalnej bramki SMS. Obserwator odpytuje trzy API i odczytuje oba interfejsy przez Playwright. Między cyklami robi 25 ms przerwy. Pomiar zawiera czas odpytywania i przesyłania odpowiedzi. Punkt końcowy SMS oznacza przyjęcie przez symulator, e-mail oznacza widoczność w testowej skrzynce, a inbox oznacza dostępność przez API.
+
+Dla kanału UI test otwiera w dwóch osobnych procesach Chrome widoki **Alerts** w Control Panel i Event Monitor. W obu sesjach loguje się jako adresat reguły. Odbiór oznacza pierwszy odczyt w pełni widocznego w pionie tytułu alertu w wyrenderowanej liście. Duży viewport umożliwia sprawdzenie całej serii bez przewijania. Jest to pomiar prezentacji w otwartym widoku, bez klikania przycisku odświeżenia. Nie mierzy powiadomień systemu operacyjnego ani odczytania alertu przez człowieka.
+
+Obserwacja każdego profilu trwa maksymalnie 40 s po zaplanowanej serii wysyłek. Jeżeli brakuje próbek UI, po obu profilach test klika **Refresh** diagnostycznie, powiększa widok, aby zmieścić obie serie, i raportuje, ile brakujących tytułów wtedy się pojawiło. Te wyniki nie wchodzą do percentyli. Wymagania dla przeglądarki i Playwright są takie same jak w pełnym zestawie E2E.
+
+W konsoli pojawia się liczba zaobserwowanych dostaw oraz p50, p95 i maksimum w milisekundach dla każdego kanału i profilu. CSV w `e2e-results/perf-*.csv` zawiera również identyfikatory zdarzeń i puste pola dla brakujących dostaw. Brak dostawy kończy test błędem. To test porównawczy na lokalnym sprzęcie, a wielkość próby ogranicza interpretację ogona rozkładu.
