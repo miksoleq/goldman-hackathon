@@ -5,6 +5,16 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RuleDocumentTest {
+    @Test void validatesVersionTemplateAndOversizedIndexBeforeSave() throws Exception {
+        var yaml = "name: R\nroute: {teams: [demo]}\nmatch: {path: 'payload[2147483648]', op: exists}\n";
+        var parser = new RuleDocument();
+        assertThat(parser.parse(yaml + "title: T").definition().at("/match/path").asText()).isEqualTo("payload[2147483648]");
+        for (var tail : java.util.List.of("title: T\nv: 4294967297", "title: '{{payload.x | typo}}'")) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> parser.parse(yaml + tail))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     @Test
     void validatesAttachedInstructions() throws Exception {
         var parser = new RuleDocument();
